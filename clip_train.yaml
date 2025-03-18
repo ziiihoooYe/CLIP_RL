@@ -23,9 +23,6 @@ text_enc:
     arg3: 10
 
 preprocessor:
-  - class: naive_preprocessor1
+  - class: clip_preprocessor
     args:
-      arg3: 10
-  - class: naive_preprocessor2
-    args:
-      arg3: 10
+      image_size: 224  
