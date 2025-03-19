@@ -1,3 +1,5 @@
+import torch
+import clip
 
 class Model:
     def __init__(self, config):
