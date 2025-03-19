@@ -22,28 +22,27 @@ class Model:
 
      
 
-class ImageEncoder(Model):
-    def __init__(self, config):
-        super().__init__(config)
-        device = config.get("device", "cpu")
-        model, _ = clip.load(config.get("clip_model", "ViT-B/32"), device=device)
-        self.model = model.visual  # Extract image encoder
+# Load CLIP model
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model, preprocess = clip.load("ViT-B/32", device=device)
 
-    def encode(self, image_path):
-        device = next(self.model.parameters()).device
-        image = preprocess(Image.open(image_path)).unsqueeze(0).to(device)
+# Image Encoder
+class ImageEncoder:
+    def __init__(self, model):
+        self.model = model.visual.to(device)
+
+    def encode(self, image):
+        image = preprocess(image).unsqueeze(0).to(device)
         with torch.no_grad():
             return self.model(image)
-    
-class TextEncoder(Model):
-    def __init__(self, config):
-        super().__init__(config)
-        device = config.get("device", "cpu")
-        model, _ = clip.load(config.get("clip_model", "ViT-B/32"), device=device)
-        self.model = model.encode_text  # Extract text encoder
+
+# Text Encoder
+class TextEncoder:
+    def __init__(self, model):
+        self.model = model
 
     def encode(self, text):
-        device = next(self.model.parameters()).device
         text_tokens = clip.tokenize([text]).to(device)
         with torch.no_grad():
-            return self.model(text_tokens)
+            return self.model.encode_text(text_tokens)
+
