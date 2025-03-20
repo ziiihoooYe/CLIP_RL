@@ -4,6 +4,7 @@ import torchvision.transforms as transforms
 from PIL import Image
 import numpy as np
 import random
+import litellm
 
 class CLIPPreprocessor(Preprocessor):
     """
@@ -53,6 +54,9 @@ class CLIPPreprocessor(Preprocessor):
             else:
                 processed_images.append(None)
         
+        for text in dataset.text_data:
+            if text is not None:
+                prompt = "You are a helpful assistant, please rewrite the following caption "
         dataset.img_data = processed_images
         return dataset
 
@@ -283,4 +287,39 @@ class PatchCutPreprocessor(Preprocessor):
         # Store which patch was selected for each image
         dataset.patch_indices = patch_indices
         
+        return dataset
+
+
+class GPTCaptionPreprocessor(Preprocessor):
+    """
+    Preprocessor that uses GPT to rewrite captions
+    """
+    def __init__(self, config):
+        self.config = config
+        self.prompt = config.get('prompt', "You are a helpful assistant, please rewrite the following caption to be more descriptive and detailed: ")
+        self.model = config.get('model', 'gpt-4o-mini')
+        
+    def preprocess(self, dataset):
+        processed_captions = []
+        for text in dataset.text_data:
+            if text is not None:
+                try:
+                    # Call litellm to rewrite the caption
+                    response = litellm.completion(
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": self.prompt},
+                            {"role": "user", "content": text}
+                        ]
+                    )
+                    # Extract the rewritten caption from the response
+                    rewritten_caption = response.choices[0].message.content
+                    processed_captions.append(rewritten_caption)
+                except Exception as e:
+                    print(f"Error processing caption: {e}")
+                    processed_captions.append(text)  # Keep original caption if there's an error
+            else:
+                processed_captions.append(None)
+        
+        dataset.text_data = processed_captions
         return dataset
