@@ -2,10 +2,11 @@
 data/
 
 # pycache
-**/__pycache__/
+# __pycache__/
 
 # vscode settings
 .vscode/
 
 # git settings
 .github/
+
