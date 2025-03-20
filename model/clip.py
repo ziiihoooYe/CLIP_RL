@@ -7,7 +7,6 @@ class CLIP_ViTB32(ImageTextEncoder):
     def __init__(self, config):
         self.device = get_gpu_device(config.get("gpu", None))
         self.model, self.preprocess = clip.load("ViT-B/32", device=self.device)
-        self.model = self.model.eval()
         self.model = self.model.to(self.device)
     
     def encode_image(self, images):
@@ -29,5 +28,5 @@ class CLIP_ViTB32(ImageTextEncoder):
             text_tokens = clip.tokenize(texts)
         else:
             text_tokens = clip.tokenize([texts])
-            text_tokens = text_tokens.to(self.device)
+        text_tokens = text_tokens.to(self.device)
         return self.model.encode_text(text_tokens)

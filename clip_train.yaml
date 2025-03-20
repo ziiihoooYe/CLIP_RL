@@ -24,7 +24,7 @@ preprocessor:
   - class: clip_preprocessor
     args:
       image_size: 224
-  - class: gpt_caption_preprocessor
-    args:
-      model: gpt-3.5-turbo
-      prompt: "You are a helpful assistant, please rewrite the following caption to be more descriptive and detailed: " 
+  # - class: gpt_caption_preprocessor
+  #   args:
+  #     model: gpt-3.5-turbo
+  #     prompt: "You are a helpful assistant, please rewrite the following caption to be more descriptive and detailed: " 

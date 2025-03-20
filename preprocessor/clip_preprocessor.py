@@ -54,11 +54,11 @@ class CLIPPreprocessor(Preprocessor):
             else:
                 processed_images.append(None)
         
-        for text in dataset.text_data:
+        for text in txt_data:
             if text is not None:
                 prompt = "You are a helpful assistant, please rewrite the following caption "
-        dataset.img_data = processed_images
-        return dataset
+        img_data = processed_images
+        return img_data, txt_data, context
 
 
 class MaskedPreprocessor(Preprocessor):
