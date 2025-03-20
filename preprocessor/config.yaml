@@ -21,3 +21,9 @@ patch_cut_preprocessor_external:
   args:
     image_size: 224
     patch_selection: 'external'
+
+gpt_caption_preprocessor:
+  class: preprocessor.clip_preprocessor.GPTCaptionPreprocessor
+  args:
+    prompt: "You are a helpful assistant, please rewrite the following caption to be more descriptive and detailed: "
+    model: 'gpt-4o-mini'
