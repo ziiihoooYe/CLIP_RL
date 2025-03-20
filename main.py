@@ -14,11 +14,12 @@ def main():
     config = read_config(args.config)
     defaults = config["default"]
     
-    # image text encoder
+    # model
     model = instantiate_module('model', config["model"], defaults)
 
     # dataset
     dataset = instantiate_module('dataset', config["dataset"], defaults)
+
     # preprocessor
     preprocessor_list = [instantiate_module('preprocessor', preprocessor_config, defaults) for preprocessor_config in config["preprocessor"]]
     
