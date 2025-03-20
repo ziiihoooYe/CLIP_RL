@@ -2,8 +2,7 @@ import yaml
 import importlib
 
 module_config_map = {
-    "img_enc": "model/config.yaml",
-    "text_enc": "model/config.yaml",
+    "model": "model/config.yaml",
     "preprocessor": "preprocessor/config.yaml",
     "dataset": "dataset/config.yaml",
 }

@@ -1,13 +1,23 @@
-naive_preprocessor1:
-  class: preprocessor.naive.NaivePreprocessor1
+clip_preprocessor:
+  class: preprocessor.clip_preprocessor.CLIPPreprocessor
   args:
-    default_arg1: 1
-    default_arg2: 2
-    arg3: 3
-  
-naive_preprocessor2:
-  class: preprocessor.naive.NaivePreprocessor2
+    image_size: 224  
+
+masked_preprocessor:
+  class: preprocessor.clip_preprocessor.MaskedPreprocessor
   args:
-    default_arg1: 1
-    default_arg2: 2
-    arg3: 3
+    image_size: 224
+    patch_size: 16
+    mask_ratio: 0.5
+
+patch_cut_preprocessor_random:
+  class: preprocessor.clip_preprocessor.PatchCutPreprocessor
+  args:
+    image_size: 224
+    patch_selection: 'random'
+
+patch_cut_preprocessor_external:
+  class: preprocessor.clip_preprocessor.PatchCutPreprocessor
+  args:
+    image_size: 224
+    patch_selection: 'external'

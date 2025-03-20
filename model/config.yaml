@@ -11,3 +11,8 @@ naive_text_en:
     default_arg1: 1
     default_arg2: 2
     arg3: 3
+
+clip_vitb32:
+  class: model.clip.CLIP_ViTB32
+  args:
+    gpu: 0

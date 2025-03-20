@@ -12,20 +12,12 @@ dataset:
   args:
     arg3: 10
 
-img_enc:
-  class: naive_img_en
+model:
+  class: clip_vitb32
   args:
-    arg3: 10
-
-text_enc:
-  class: naive_text_en
-  args:
-    arg3: 10
+    gpu: 0
 
 preprocessor:
-  - class: naive_preprocessor1
+  - class: clip_preprocessor
     args:
-      arg3: 10
-  - class: naive_preprocessor2
-    args:
-      arg3: 10
+      image_size: 224  

@@ -9,41 +9,41 @@ class Model:
         self.model = None
     
     def load(self, model_path):
-        self.model.load_state_dict(torch.load(model_path))
+        raise NotImplementedError("load method must be implemented")
 
     def save(self, model_path):
-        torch.save(self.model.state_dict(), model_path)
-
-    def encode(self, data):
-        raise NotImplementedError("encode method must be implemented")
+        raise NotImplementedError("save method must be implemented")
 
     def to(self, device):
         self.model.to(device)
 
-     
+# There are three types of encoders: 
+#   - ImageEncoder (encode image)
+#   - TextEncoder (encode text) 
+#   - ImageTextEncoder (encode both image and text)
 
 class ImageEncoder(Model):
     def __init__(self, config):
         super().__init__(config)
-        device = config.get("device", "cpu")
-        model, _ = clip.load(config.get("clip_model", "ViT-B/32"), device=device)
-        self.model = model.visual  # Extract image encoder
-
-    def encode(self, image_path):
-        device = next(self.model.parameters()).device
-        image = preprocess(Image.open(image_path)).unsqueeze(0).to(device)
-        with torch.no_grad():
-            return self.model(image)
     
+    def encode_image(self, image):
+        raise NotImplementedError("encode_image method must be implemented")
+
 class TextEncoder(Model):
     def __init__(self, config):
-        super().__init__(config)
-        device = config.get("device", "cpu")
-        model, _ = clip.load(config.get("clip_model", "ViT-B/32"), device=device)
-        self.model = model.encode_text  # Extract text encoder
+        super().__init__(config)        
+    
+    def encode_text(self, text):
+        raise NotImplementedError("encode_text method must be implemented")
 
-    def encode(self, text):
-        device = next(self.model.parameters()).device
-        text_tokens = clip.tokenize([text]).to(device)
-        with torch.no_grad():
-            return self.model(text_tokens)
+# ImageTextEncoder is a model that can encode both image and text
+# emsemble image encoder and text encoder in one model
+class ImageTextEncoder(Model):
+    def __init__(self, config):
+        super().__init__(config)
+    
+    def encode_image(self, image):
+        raise NotImplementedError("encode_image method must be implemented")
+    
+    def encode_text(self, text):
+        raise NotImplementedError("encode_text method must be implemented")
