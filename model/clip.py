@@ -1,18 +1,7 @@
 import torch
 import clip
 from framework.model import ImageTextEncoder
-
-# Load CLIP model
-device = "cuda" if torch.cuda.is_available() else "cpu"
-model, preprocess = clip.load("ViT-B/32", device=device)
-
-def get_gpu_device(device):
-    import os
-    if device is not None and torch.cuda.is_available():
-        os.environ["CUDA_VISIBLE_DEVICES"] = str(device)
-        return "cuda"
-    else:
-        return "cpu"
+from utils.utils import get_gpu_device
     
 class CLIP_ViTB32(ImageTextEncoder):
     def __init__(self, config):
@@ -21,12 +10,24 @@ class CLIP_ViTB32(ImageTextEncoder):
         self.model = self.model.eval()
         self.model = self.model.to(self.device)
     
-    def encode_image(self, image):
-        image = self.preprocess(image).unsqueeze(0).to(self.device)
-        return self.model.encode_image(image)
+    def encode_image(self, images):
+        if isinstance(images, list):
+            processed_images = []
+            for image in images:
+                if isinstance(image, torch.Tensor):
+                    processed_images.append(image)
+                else:
+                    processed_images.append(self.preprocess(image))
+            images = torch.stack(processed_images)
+        else:
+            images = self.preprocess(images).unsqueeze(0)
+        images = images.to(self.device)
+        return self.model.encode_image(images)
     
-    def encode_text(self, text):
-        text_tokens = clip.tokenize([text]).to(self.device)
+    def encode_text(self, texts):
+        if isinstance(texts, list):
+            text_tokens = clip.tokenize(texts)
+        else:
+            text_tokens = clip.tokenize([texts])
+            text_tokens = text_tokens.to(self.device)
         return self.model.encode_text(text_tokens)
-
-

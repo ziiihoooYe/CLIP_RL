@@ -16,6 +16,15 @@ class Model:
 
     def to(self, device):
         self.model.to(device)
+    
+    def train(self):
+        self.model.train()
+    
+    def eval(self):
+        self.model.eval()
+        
+    def parameters(self):
+        return self.model.parameters()
 
 # There are three types of encoders: 
 #   - ImageEncoder (encode image)
@@ -26,14 +35,14 @@ class ImageEncoder(Model):
     def __init__(self, config):
         super().__init__(config)
     
-    def encode_image(self, image):
+    def encode_image(self, images):
         raise NotImplementedError("encode_image method must be implemented")
 
 class TextEncoder(Model):
     def __init__(self, config):
         super().__init__(config)        
     
-    def encode_text(self, text):
+    def encode_text(self, texts):
         raise NotImplementedError("encode_text method must be implemented")
 
 # ImageTextEncoder is a model that can encode both image and text
@@ -42,8 +51,8 @@ class ImageTextEncoder(Model):
     def __init__(self, config):
         super().__init__(config)
     
-    def encode_image(self, image):
+    def encode_image(self, images):
         raise NotImplementedError("encode_image method must be implemented")
     
-    def encode_text(self, text):
+    def encode_text(self, texts):
         raise NotImplementedError("encode_text method must be implemented")

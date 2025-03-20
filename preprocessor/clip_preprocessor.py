@@ -34,10 +34,10 @@ class CLIPPreprocessor(Preprocessor):
         # For text, we'll rely on the tokenizer at the model level
         # This preprocessor is mainly for image preprocessing
     
-    def preprocess(self, dataset):
+    def preprocess(self, img_data, txt_data, context=None):
         # Process images if they are PIL Images or numpy arrays
         processed_images = []
-        for img in dataset.img_data:
+        for img in img_data:
             if img is not None:
                 # Convert numpy array to PIL Image if needed
                 if isinstance(img, np.ndarray):
@@ -53,8 +53,8 @@ class CLIPPreprocessor(Preprocessor):
             else:
                 processed_images.append(None)
         
-        dataset.img_data = processed_images
-        return dataset
+        img_data = processed_images
+        return img_data, txt_data, context
 
 
 class MaskedPreprocessor(Preprocessor):
@@ -137,11 +137,11 @@ class MaskedPreprocessor(Preprocessor):
         
         return masked_img, mask_info
     
-    def preprocess(self, dataset):
+    def preprocess(self, img_data, txt_data, context=None):
         processed_images = []
         mask_info_list = []
         
-        for img in dataset.img_data:
+        for img in img_data:
             if img is not None:
                 # Convert numpy array to PIL Image if needed
                 if isinstance(img, np.ndarray):
@@ -168,11 +168,13 @@ class MaskedPreprocessor(Preprocessor):
                 processed_images.append(None)
                 mask_info_list.append(None)
         
-        dataset.img_data = processed_images
+        img_data = processed_images
         # Store mask information in the dataset for later use in reconstruction
-        dataset.mask_info = mask_info_list
+        if context is None:
+            context = {}
+        context['mask_info'] = mask_info_list
         
-        return dataset
+        return img_data, txt_data, context
 
 
 class PatchCutPreprocessor(Preprocessor):
@@ -241,11 +243,11 @@ class PatchCutPreprocessor(Preprocessor):
         
         return patch, patch_idx
     
-    def preprocess(self, dataset):
+    def preprocess(self, img_data, txt_data, context=None):
         processed_images = []
         patch_indices = []
         
-        for img in dataset.img_data:
+        for img in img_data:
             if img is not None:
                 # Convert numpy array to PIL Image if needed
                 if isinstance(img, np.ndarray):
@@ -279,8 +281,10 @@ class PatchCutPreprocessor(Preprocessor):
                 processed_images.append(None)
                 patch_indices.append(None)
         
-        dataset.img_data = processed_images
+        img_data = processed_images
         # Store which patch was selected for each image
-        dataset.patch_indices = patch_indices
+        if context is None:
+            context = {}
+        context['patch_indices'] = patch_indices
         
-        return dataset
+        return img_data, txt_data, context

@@ -6,6 +6,6 @@ class Preprocessor:
         # should be defined in the config yaml file
         self.config = config
 
-    def preprocess(self, dataset):
-        # Should return preprocessed dataset
+    def preprocess(self, img_data, txt_data, context=None):
+        # Should return preprocessed image, text, and optionally context
         raise NotImplementedError

@@ -1,18 +1,24 @@
 import os
 import json
+import torch
 import pandas as pd
 from PIL import Image
-from torch.utils.data import Dataset, DataLoader
+from framework.dataset import IterDataset
+from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 from datasets import load_dataset
 
+def cc12m_collate_fn(batch):
+    images, captions = zip(*batch)
+    images = list(images)
+    captions = list(captions)
+    return images, captions
 
-class CC12MDataset(Dataset):
-    def __init__(self, transform):
-        
+class CC12MDataset(IterDataset):
+    def __init__(self, config): 
         self.dataset = load_dataset("pixparse/cc12m-wds", split="train", streaming=True)
-        self.transform = transform
-
+        self.config = config
+        self.collate_fn = cc12m_collate_fn
 
     def __getitem__(self, idx):
         """
@@ -24,11 +30,7 @@ class CC12MDataset(Dataset):
                     # Load image
                     image = data_item['jpg']
                     
-
-                    # print(self.transform)
-                    # Apply transformations if provided
-                    # if self.transform:
-                    #     image = self.transform(image)
+                    # image = self.transform(image)
 
                 except Exception as e:
                     print(f"Error loading image at index {idx}: {e}")
@@ -48,13 +50,14 @@ class CC12MDataset(Dataset):
 
         for data_item in self.dataset:
             try:
-                print(data_item)
+                # print(data_item)
                 image = data_item['jpg']
+                
+                # image = self.transform(image)
+
                 caption = data_item['json']['caption']
 
-                print(image, caption)
-                # if self.transform:
-                #     image = self.transform(image)
+                # print(image, caption)
 
                 yield image, caption
             except Exception as e:
@@ -77,7 +80,7 @@ class CC12MDataset(Dataset):
 
 
 
-# transform = None
+# transform = transforms.Compose([transforms.Resize((224,224)), transforms.ToTensor()])
 
 # dataset = CC12MDataset(transform=transform)
 
