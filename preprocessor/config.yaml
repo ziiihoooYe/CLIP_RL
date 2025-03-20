@@ -4,20 +4,20 @@ clip_preprocessor:
     image_size: 224  
 
 masked_preprocessor:
-  class: preprocessor.naive.MaskedPreprocessor
+  class: preprocessor.clip_preprocessor.MaskedPreprocessor
   args:
     image_size: 224
     patch_size: 16
     mask_ratio: 0.5
 
 patch_cut_preprocessor_random:
-  class: preprocessor.naive.PatchCutPreprocessor
+  class: preprocessor.clip_preprocessor.PatchCutPreprocessor
   args:
     image_size: 224
     patch_selection: 'random'
 
 patch_cut_preprocessor_external:
-  class: preprocessor.naive.PatchCutPreprocessor
+  class: preprocessor.clip_preprocessor.PatchCutPreprocessor
   args:
     image_size: 224
     patch_selection: 'external'
