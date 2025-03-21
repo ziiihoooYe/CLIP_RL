@@ -1,10 +1,11 @@
 default:
   exp: ContrastiveLearning
-  gpu: 0
+  gpu: 2
+  log_file: clip_log.log
   
 train:
   epochs: 50
-  batch_size: 64
+  batch_size: 512
   lr: 1e-4
   scheduler: cosine
   temperature_init: 0.07
@@ -18,13 +19,16 @@ dataset:
 model:
   class: clip_vitb32
   args:
-    gpu: 0
+
 
 preprocessor:
-  - class: clip_preprocessor
+  - class: image_preprocessor
     args:
       image_size: 224
   # - class: gpt_caption_preprocessor
   #   args:
   #     model: gpt-3.5-turbo
   #     prompt: "You are a helpful assistant, please rewrite the following caption to be more descriptive and detailed: " 
+  - class: text_preprocessor
+    args:
+      cutoff_length: 77

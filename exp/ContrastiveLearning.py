@@ -1,12 +1,14 @@
 import math
 import torch
 import torch.nn as nn
+from tqdm import tqdm
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from loss.infonce import infonce_loss
 from utils.utils import get_gpu_device
+from tqdm.contrib.logging import logging_redirect_tqdm
 
-def ContrastiveLearning(model, dataset, preprocessor_list, config):
+def ContrastiveLearning(model, dataset, preprocessor_list, config, logger):
     """
     model: model with encode_image and encode_text method
     dataset: dataset with __getitem__ and __len__ method
@@ -51,33 +53,35 @@ def ContrastiveLearning(model, dataset, preprocessor_list, config):
         collate_fn=dataset.collate_fn
     )
 
-    for epoch in range(epochs):
-        total_loss = 0.0
-        for i, (images, captions) in enumerate(train_loader):
-            ctx = None
+    with logging_redirect_tqdm(loggers=[logger]):
+        for epoch in range(epochs):
+            total_loss = 0.0
+            with tqdm(desc=f"Epoch {epoch+1}/{epochs}") as pbar:
+                for i, (images, captions) in enumerate(train_loader):
+                    ctx = None
 
-            for preprocessor in preprocessor_list: 
-                images, captions, ctx = preprocessor.preprocess(images, captions, ctx)
+                    for preprocessor in preprocessor_list:
+                        images, captions, ctx = preprocessor.preprocess(images, captions, ctx)
 
-            # images and captions are lists
-            image_embeds = model.encode_image(images)
-            text_embeds = model.encode_text(captions)
-            
-            if temperature_learnable:
-                temperature = 1.0 / logit_scale.exp()
-            else:
-                temperature = temperature_init
+                    image_embeds = model.encode_image(images)
+                    text_embeds = model.encode_text(captions)
 
-            loss = infonce_loss(image_embeds, text_embeds, temperature=temperature)
+                    if temperature_learnable:
+                        temperature = 1.0 / logit_scale.exp()
+                    else:
+                        temperature = temperature_init
 
-            # optimization
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+                    loss = infonce_loss(image_embeds, text_embeds, temperature=temperature)
 
-            total_loss += loss.item()
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
 
-        avg_loss = total_loss / len(train_loader)
-        print(f"Epoch [{epoch+1}/{epochs}] - Loss: {avg_loss:.4f}")
+                    total_loss += loss.item()
+                    pbar.set_postfix(loss=loss.item())
+                    pbar.update(1)
 
-    print("Finish Contrastive Learning Training!")
+            avg_loss = total_loss / len(train_loader)
+            logger.info("Epoch [%d/%d] - Loss: %.4f", epoch+1, epochs, avg_loss)
+
+    logger.info("Contrastive Learning Training Finished----")

@@ -31,6 +31,8 @@ def list_to_dict(args_list):
 
 
 def merge_config(default_config: dict, custom_config: dict) -> dict:
+    if custom_config is None:
+        return default_config
     return {**default_config, **custom_config}
 
 

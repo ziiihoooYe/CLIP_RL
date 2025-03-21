@@ -1,5 +1,5 @@
-clip_preprocessor:
-  class: preprocessor.clip_preprocessor.CLIPPreprocessor
+image_preprocessor:
+  class: preprocessor.clip_preprocessor.ImagePreprocessor
   args:
     image_size: 224  
 
@@ -27,3 +27,8 @@ gpt_caption_preprocessor:
   args:
     prompt: "You are a helpful assistant, please rewrite the following caption to be more descriptive and detailed: "
     model: 'gpt-4o-mini'
+
+text_preprocessor:
+  class: preprocessor.clip_preprocessor.TextPreprocessor
+  args:
+    cutoff_length: 77

@@ -1,4 +1,5 @@
 from framework.preprocessor import Preprocessor
+import clip
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
@@ -6,7 +7,7 @@ import numpy as np
 import random
 import litellm
 
-class CLIPPreprocessor(Preprocessor):
+class ImagePreprocessor(Preprocessor):
     """
     Standard CLIP preprocessing:
     1. Resize (maintaining aspect ratio)
@@ -303,9 +304,9 @@ class GPTCaptionPreprocessor(Preprocessor):
         self.prompt = config.get('prompt', "You are a helpful assistant, please rewrite the following caption to be more descriptive and detailed: ")
         self.model = config.get('model', 'gpt-4o-mini')
         
-    def preprocess(self, dataset):
+    def preprocess(self, img_data, txt_data, context=None):
         processed_captions = []
-        for text in dataset.text_data:
+        for text in txt_data:
             if text is not None:
                 try:
                     # Call litellm to rewrite the caption
@@ -325,5 +326,27 @@ class GPTCaptionPreprocessor(Preprocessor):
             else:
                 processed_captions.append(None)
         
-        dataset.text_data = processed_captions
-        return dataset
+        txt_data = processed_captions
+        return img_data, txt_data, context
+
+class TextPreprocessor(Preprocessor):
+    def __init__(self, config):
+        self.config = config
+        self.cutoff_length = config.get('cutoff_length', 77)
+        self.device = config.get('device', 'cpu')
+
+    def preprocess(self, img_data, txt_data, context=None):
+        processed_captions = []
+        for text in txt_data:
+            if text is not None:
+                tokens = clip.tokenize([text], truncate=True)
+                
+                if tokens.size(1) > self.cutoff_length:
+                    tokens = tokens[:, :self.cutoff_length]
+                tokens = tokens.to(self.device)
+                processed_captions.append(tokens)
+            else:
+                processed_captions.append(None)
+        
+        txt_data = processed_captions
+        return img_data, txt_data, context
