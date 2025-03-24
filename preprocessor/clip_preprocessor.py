@@ -292,7 +292,7 @@ class PatchCutPreprocessor(Preprocessor):
             context = {}
         context['patch_indices'] = patch_indices
         
-        return dataset
+        return img_data, txt_data, context
 
 
 class GPTCaptionPreprocessor(Preprocessor):
@@ -328,6 +328,7 @@ class GPTCaptionPreprocessor(Preprocessor):
         
         txt_data = processed_captions
         return img_data, txt_data, context
+
 
 class TextPreprocessor(Preprocessor):
     def __init__(self, config):

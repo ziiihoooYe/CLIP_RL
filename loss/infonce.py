@@ -3,16 +3,6 @@ import torch.nn.functional as F
 
 def infonce_loss(image_embeds, text_embeds, temperature=0.07):
     """
-
-
-
-
-
-
-
-
-
-
     image_embeds: [batch_size, embed_dim]
     text_embeds:  [batch_size, embed_dim]
     temperature:  float, default=0.07

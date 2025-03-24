@@ -20,6 +20,8 @@ def ContrastiveLearning(model, dataset, preprocessor_list, config, logger):
     ### --------------------
     train_config = config["train"]
     device = get_gpu_device(config['default'].get("gpu", None))
+    scaler = torch.amp.GradScaler()
+
 
     # hyperparameters
     epochs = train_config.get("epochs", 10)
@@ -32,7 +34,6 @@ def ContrastiveLearning(model, dataset, preprocessor_list, config, logger):
     # prepare model
     model.to(device)
     model.train()
-    
 
     # prepare optimizer
     if temperature_learnable:
@@ -41,14 +42,14 @@ def ContrastiveLearning(model, dataset, preprocessor_list, config, logger):
             {"params": model.parameters()},
             {"params": [logit_scale]}
         ], lr=lr)
-    else:
+    else: 
+        logit_scale = None
         optimizer = optim.Adam(model.parameters(), lr=lr)
         
     
     train_loader = DataLoader(
         dataset,
         batch_size=batch_size,
-        shuffle=False,
         num_workers=num_workers,
         collate_fn=dataset.collate_fn
     )
@@ -63,19 +64,30 @@ def ContrastiveLearning(model, dataset, preprocessor_list, config, logger):
                     for preprocessor in preprocessor_list:
                         images, captions, ctx = preprocessor.preprocess(images, captions, ctx)
 
-                    image_embeds = model.encode_image(images)
-                    text_embeds = model.encode_text(captions)
+                    with torch.amp.autocast('cuda' if config['default'].get("gpu", None) is not None else 'cpu', enabled=False):
+                        image_embeds = model.encode_image(images)
+                        text_embeds  = model.encode_text(captions)
 
-                    if temperature_learnable:
-                        temperature = 1.0 / logit_scale.exp()
-                    else:
-                        temperature = temperature_init
-
-                    loss = infonce_loss(image_embeds, text_embeds, temperature=temperature)
+                        if temperature_learnable:
+                            temperature = (1.0 / logit_scale.exp()).clamp(min=0.01, max=1.0)
+                        else:
+                            temperature = temperature_init
+                        
+                        loss = infonce_loss(image_embeds, text_embeds, temperature=temperature)
 
                     optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
+                    scaler.scale(loss).backward()
+
+                    scaler.unscale_(optimizer)
+                    all_params = list(model.parameters()) + [logit_scale]
+                    torch.nn.utils.clip_grad_norm_(all_params, max_norm=1.0)
+
+                    scaler.step(optimizer)
+                    scaler.update()
+                    
+                    # clamp logit_scale after optimizer step
+                    with torch.no_grad():
+                        logit_scale.clamp_(0.0, math.log(100.0))
 
                     total_loss += loss.item()
                     pbar.set_postfix(loss=loss.item())

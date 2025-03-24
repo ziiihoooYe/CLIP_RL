@@ -6,7 +6,7 @@ default:
 train:
   epochs: 50
   batch_size: 512
-  lr: 1e-4
+  lr: 1e-5
   scheduler: cosine
   temperature_init: 0.07
   temperature_learnable: true
@@ -25,10 +25,10 @@ preprocessor:
   - class: image_preprocessor
     args:
       image_size: 224
-  - class: gpt_caption_preprocessor
-    args:
-      model: gpt-3.5-turbo
-      prompt: "You are a helpful assistant, please rewrite the following caption to be more descriptive and detailed: " 
+  # - class: gpt_caption_preprocessor
+  #   args:
+  #     model: gpt-3.5-turbo
+  #     prompt: "You are a helpful assistant, please rewrite the following caption to be more descriptive and detailed: " 
   - class: text_preprocessor
     args:
       cutoff_length: 77
