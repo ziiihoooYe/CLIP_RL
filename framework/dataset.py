@@ -27,9 +27,6 @@ class Dataset(TorchDataset):
         raise NotImplementedError
     
 class IterDataset(IterableDataset):
-    def __init__(self):
-        super().__init__()
-    
     def __init__(self, config):
         super(Dataset, self).__init__()
         self.config = config
@@ -40,7 +37,7 @@ class IterDataset(IterableDataset):
         self.img_data = None 
         self.text_data = None
 
-    def __iter__(self, idx):
+    def __iter__(self):
         """
         Args:
             idx: Index of the sample
@@ -48,4 +45,3 @@ class IterDataset(IterableDataset):
             Tuple: ()
         """
         raise NotImplementedError
-  

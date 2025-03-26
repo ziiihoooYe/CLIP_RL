@@ -1,7 +1,15 @@
-naive_dataset:
-  class: dataset.CC12M.CC12MDataset
+cc12m_train_dataset:
+  class: dataset.CC12M.CC12MTrainDataset
+  
+cc3m_train_dataset:
+  class: dataset.CC12M.CC3MTrainDataset
+
+cc3m_val_dataset:
+  class: dataset.CC12M.CC3MValDataset
+
+coco_val_dataset:
+  class: dataset.MSCOCO.MSCOCOVal2017Dataset
   args:
-    # default_arg1: 1
-    # default_arg2: 2
-    # arg3: 3
-    transform: null
+    image_path: ./data/val2017
+    annotations_path: ./data/val2017annotations/captions_val2017.json
+    num_captions: 5

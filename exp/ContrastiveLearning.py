@@ -1,12 +1,22 @@
 import math
 import torch
+import random
 import torch.nn as nn
 from tqdm import tqdm
+from framework.experiments import Experiment
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from loss.infonce import infonce_loss
 from utils.utils import get_gpu_device
 from tqdm.contrib.logging import logging_redirect_tqdm
+
+class ContrastiveLearningExperiment(Experiment):
+    def __init__(self, config):
+        super(ContrastiveLearningExperiment, self).__init__(config)
+    
+    def run(self, model, dataset, preprocessor_list, logger):
+        ContrastiveLearning(model, dataset, preprocessor_list, self.config, logger)
+
 
 def ContrastiveLearning(model, dataset, preprocessor_list, config, logger):
     """
@@ -18,18 +28,19 @@ def ContrastiveLearning(model, dataset, preprocessor_list, config, logger):
     ### --------------------
     ### Instantiation
     ### --------------------
-    train_config = config["train"]
-    device = get_gpu_device(config['default'].get("gpu", None))
+    device = get_gpu_device(config.get("gpu", None))
     scaler = torch.amp.GradScaler()
 
 
     # hyperparameters
-    epochs = train_config.get("epochs", 10)
-    batch_size = train_config.get("batch_size", 32)
-    lr = train_config.get("learning_rate", 1e-4)
-    num_workers = train_config.get("num_workers", 4)
-    temperature_init = train_config.get("temperature_init", 0.07)
-    temperature_learnable = train_config.get("temperature_learnable", False)
+    epochs = config.get("epochs", 10)
+    batch_size = config.get("batch_size", 32)
+    lr = config.get("learning_rate", 1e-4)
+    num_workers = config.get("num_workers", 4)
+    temperature_init = config.get("temperature_init", 0.07)
+    temperature_learnable = config.get("temperature_learnable", False)
+    amp_enabled = config.get("amp_enabled", False)
+    max_iter = config.get("max_iter", None)
 
     # prepare model
     model.to(device)
@@ -53,18 +64,25 @@ def ContrastiveLearning(model, dataset, preprocessor_list, config, logger):
         num_workers=num_workers,
         collate_fn=dataset.collate_fn
     )
-
+    
+    logger.info("Contrastive Learning Training Started----")
     with logging_redirect_tqdm(loggers=[logger]):
-        for epoch in range(epochs):
-            total_loss = 0.0
-            with tqdm(desc=f"Epoch {epoch+1}/{epochs}") as pbar:
+        global_iter = 0
+        with tqdm(total=max_iter, desc=f"Training Progress") as pbar:
+            for epoch in range(epochs):
+                total_loss = 0.0
                 for i, (images, captions) in enumerate(train_loader):
+                    if max_iter is not None and global_iter >= max_iter:
+                        break
+
                     ctx = None
+                    if dataset.config.get("num_captions", 1) > 1:
+                        captions = [caption[random.randint(0, len(caption)-1)] for caption in captions]
 
                     for preprocessor in preprocessor_list:
                         images, captions, ctx = preprocessor.preprocess(images, captions, ctx)
 
-                    with torch.amp.autocast('cuda' if config['default'].get("gpu", None) is not None else 'cpu', enabled=False):
+                    with torch.amp.autocast('cuda' if 'cuda' in device else 'cpu', enabled=amp_enabled):
                         image_embeds = model.encode_image(images)
                         text_embeds  = model.encode_text(captions)
 
@@ -72,28 +90,28 @@ def ContrastiveLearning(model, dataset, preprocessor_list, config, logger):
                             temperature = (1.0 / logit_scale.exp()).clamp(min=0.01, max=1.0)
                         else:
                             temperature = temperature_init
-                        
                         loss = infonce_loss(image_embeds, text_embeds, temperature=temperature)
 
                     optimizer.zero_grad()
                     scaler.scale(loss).backward()
-
                     scaler.unscale_(optimizer)
-                    all_params = list(model.parameters()) + [logit_scale]
+                    if temperature_learnable:
+                        all_params = list(model.parameters()) + [logit_scale]
+                    else:
+                        all_params = list(model.parameters())
                     torch.nn.utils.clip_grad_norm_(all_params, max_norm=1.0)
 
                     scaler.step(optimizer)
                     scaler.update()
-                    
-                    # clamp logit_scale after optimizer step
-                    with torch.no_grad():
-                        logit_scale.clamp_(0.0, math.log(100.0))
+
+                    if temperature_learnable:
+                        with torch.no_grad():
+                            logit_scale.clamp_(0.0, math.log(100.0))
 
                     total_loss += loss.item()
-                    pbar.set_postfix(loss=loss.item())
+                    global_iter += 1
+                    pbar.set_postfix(loss=loss.item(), epoch=epoch+1)
                     pbar.update(1)
 
-            avg_loss = total_loss / len(train_loader)
-            logger.info("Epoch [%d/%d] - Loss: %.4f", epoch+1, epochs, avg_loss)
 
     logger.info("Contrastive Learning Training Finished----")

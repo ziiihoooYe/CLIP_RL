@@ -1,0 +1,38 @@
+contrastive_learning:
+  class: exp.ContrastiveLearning.ContrastiveLearningExperiment
+  args:
+    epochs: 50
+    batch_size: 512
+    lr: 1e-5
+    scheduler: cosine
+    temperature_init: 0.07
+    temperature_learnable: true
+    amp_enabled: false
+
+ckc_learning:
+  class: exp.CKC.CKCLearningExperiment
+  args:
+    epochs: 50
+    batch_size: 512
+    update_iter: 10
+    lr: 1e-5
+    scheduler: cosine
+    ckc_temperature_init: 0.07
+    ckc_temperature_learnable: false
+    temperature_init: 0.07
+    temperature_learnable: false
+    amp_enabled: false
+  
+retrieval:
+  class: exp.RetrievalEvaluation.RetrievalEvaluationExperiment
+  args:
+    sample_size: 1000
+    batch_size: 512
+    num_workers: 4
+    
+uniformity:
+  class: exp.Uniformity.UniformityExperiment
+  args:
+    sample_size: 1000
+    batch_size: 512
+    num_workers: 4

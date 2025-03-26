@@ -1,26 +1,44 @@
+# Default Config
 default:
-  exp: ContrastiveLearning
   gpu: 2
   log_file: clip_log.log
-  
-train:
-  epochs: 50
-  batch_size: 512
-  lr: 1e-5
-  scheduler: cosine
-  temperature_init: 0.07
-  temperature_learnable: true
 
-dataset:
-  class: naive_dataset
-  args:
-    arg3: 10
 
+# Experiments Config
+exp: 
+  - class: ckc_learning
+    dataset:
+      # class: cc12m_train_dataset
+      class: coco_val_dataset
+    args:
+      epochs: 10
+      batch_size: 512
+      update_iter: 20
+      ckc_temperature: 0.01
+  # - class: contrastive_learning
+  #   dataset:
+  #     # class: cc12m_train_dataset
+  #     class: coco_val_dataset
+  #   args:
+  #     epochs: 50
+  #     batch_size: 256
+  #     temperature_learnable: false
+  - class: retrieval
+    dataset:
+      class: coco_val_dataset
+    args:
+      sample_size: 5000
+  - class: uniformity
+    dataset:
+      class: coco_val_dataset
+    args:
+      sample_size: 5000
+
+# Model Config
 model:
   class: clip_vitb32
-  args:
 
-
+# Preprocessor Config
 preprocessor:
   - class: image_preprocessor
     args:

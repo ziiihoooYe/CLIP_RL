@@ -340,7 +340,10 @@ class TextPreprocessor(Preprocessor):
         processed_captions = []
         for text in txt_data:
             if text is not None:
-                tokens = clip.tokenize([text], truncate=True)
+                if isinstance(text, list):
+                    tokens = clip.tokenize(text, truncate=True)
+                else:
+                    tokens = clip.tokenize([text], truncate=True)
                 
                 if tokens.size(1) > self.cutoff_length:
                     tokens = tokens[:, :self.cutoff_length]

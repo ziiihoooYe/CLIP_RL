@@ -4,17 +4,19 @@ from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 from datasets import load_dataset
 
-def cc12m_collate_fn(batch):
+
+def cc_collate_fn(batch):
     images, captions = zip(*batch)
     images = list(images)
     captions = list(captions)
     return images, captions
 
-class CC12MDataset(IterDataset):
+
+class CCDataset(IterDataset):
     def __init__(self, config): 
-        self.dataset = load_dataset("pixparse/cc12m-wds", split="train", streaming=True)
+        self.dataset = load_dataset("pixparse/cc3m-wds", split="train", streaming=True)
         self.config = config
-        self.collate_fn = cc12m_collate_fn
+        self.collate_fn = cc_collate_fn
 
     def __getitem__(self, idx):
         """
@@ -25,61 +27,45 @@ class CC12MDataset(IterDataset):
                 try:
                     # Load image
                     image = data_item['jpg']
-                    
-                    # image = self.transform(image)
-
                 except Exception as e:
                     print(f"Error loading image at index {idx}: {e}")
                     return None
-
                 try:
                     caption = data_item['json']['caption']
                 except Exception as e:
                     print(f"Error loading caption at index {idx}: {e}")
                     return None
-
                 return image, caption
         raise IndexError(f"Index {idx} out of bounds")
     
     def __iter__(self):
         """ Allow iteration over dataset """
-
         for data_item in self.dataset:
             try:
-                # print(data_item)
                 image = data_item['jpg']
-                
-                # image = self.transform(image)
-
                 caption = data_item['json']['caption']
-
-                # print(image, caption)
-
                 yield image, caption
             except Exception as e:
                 print(f"Error loading data: {e}")
                 continue
+            
+
+class CC3MTrainDataset(CCDataset):
+    def __init__(self, config): 
+        self.dataset = load_dataset("pixparse/cc3m-wds", split="train", streaming=True)
+        self.config = config
+        self.collate_fn = cc_collate_fn
 
 
+class CC3MValDataset(CCDataset):
+    def __init__(self, config): 
+        self.dataset = load_dataset("pixparse/cc3m-wds", split="validation", streaming=True)
+        self.config = config
+        self.collate_fn = cc_collate_fn
 
 
-# # Create DataLoader
-# dataloader = DataLoader(dataset, batch_size=2, shuffle=False)
-
-# # Fetch a batch of data
-# for batch in dataloader:
-#     images, captions = batch
-#     print(f"Batch Images Shape: {images.shape}")
-#     print(f"Batch Captions: {captions}")
-#     break  # Process only one batch
-
-
-
-
-# transform = transforms.Compose([transforms.Resize((224,224)), transforms.ToTensor()])
-
-# dataset = CC12MDataset(transform=transform)
-
-# for i, (image, caption) in enumerate(dataset):
-    
-#     print(f"Image {i}: {image}, Caption: {caption}")
+class CC12MTrainDataset(CCDataset):
+    def __init__(self, config): 
+        self.dataset = load_dataset("pixparse/cc12m-wds", split="train", streaming=True)
+        self.config = config
+        self.collate_fn = cc_collate_fn
