@@ -11,10 +11,18 @@ exp:
       # class: cc12m_train_dataset
       class: coco_val_dataset
     args:
-      epochs: 10
-      batch_size: 512
-      update_iter: 20
+      infonce_weight: 0.1
+      epochs: 50
+      batch_size: 1024
+      update_iter: 500
       ckc_temperature: 0.01
+      num_workers: 4
+  - class: platonic_metric
+    dataset:
+      class: coco_val_dataset
+    args:
+      sample_size: 5000
+      trials: 10
   # - class: contrastive_learning
   #   dataset:
   #     # class: cc12m_train_dataset

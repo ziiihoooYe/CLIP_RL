@@ -5,6 +5,7 @@ class Dataset(TorchDataset):
     def __init__(self, config):
         super(Dataset, self).__init__()
         self.config = config
+        self.name = config.get("name", "Dataset")
         
         # Dataset class should have the following attributes:
         # - img_data: list of image data samples

@@ -8,6 +8,7 @@ contrastive_learning:
     temperature_init: 0.07
     temperature_learnable: true
     amp_enabled: false
+    num_workers: 4
 
 ckc_learning:
   class: exp.CKC.CKCLearningExperiment
@@ -22,6 +23,7 @@ ckc_learning:
     temperature_init: 0.07
     temperature_learnable: false
     amp_enabled: false
+    num_workers: 4
   
 retrieval:
   class: exp.RetrievalEvaluation.RetrievalEvaluationExperiment
@@ -32,6 +34,13 @@ retrieval:
     
 uniformity:
   class: exp.Uniformity.UniformityExperiment
+  args:
+    sample_size: 1000
+    batch_size: 512
+    num_workers: 4
+
+platonic_metric:
+  class: exp.PlatonicMetric.PlatonicMetricExperiment
   args:
     sample_size: 1000
     batch_size: 512

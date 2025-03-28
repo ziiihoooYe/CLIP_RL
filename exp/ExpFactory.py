@@ -22,4 +22,6 @@ class ExperimentFactory:
         dataset = ExperimentFactory.get_dataset(dataset_config, defaults)
         
         # run experiment
-        exp.run(model, dataset, preprocessor_list, logger)
+        model = exp.run(model, dataset, preprocessor_list, logger)
+        
+        return model

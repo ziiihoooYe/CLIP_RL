@@ -32,7 +32,7 @@ def main():
     # Experiment
     # ----------------
     for exp_config in config["exp"]:
-        ExperimentFactory.run(model, exp_config, preprocessor_list, defaults, logger)
+        model = ExperimentFactory.run(model, exp_config, preprocessor_list, defaults, logger)
         
 
 if __name__ == "__main__":

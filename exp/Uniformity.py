@@ -20,7 +20,7 @@ class UniformityExperiment(Experiment):
             collate_fn=dataset.collate_fn
         )
         sample_size = self.config.get("sample_size", 5000)
-        logger.info(f"Evaluating Uniformity & Alignment performance on {sample_size} samples")
+        logger.info(f"Evaluating Uniformity & Alignment performance on dataset {dataset.name} with {sample_size} samples")
         num_captions = dataset.config.get("num_captions", 1)
         loader_len = len(train_loader) if hasattr(train_loader, '__len__') else None
         if loader_len is not None:
@@ -69,6 +69,7 @@ class UniformityExperiment(Experiment):
         df = pd.DataFrame([values], columns=metrics)
         logger.info(f"\n{df.to_string()}")
     
+        return model
 
 # alignment metric
 # features: (N, D)

@@ -16,6 +16,7 @@ class ContrastiveLearningExperiment(Experiment):
     
     def run(self, model, dataset, preprocessor_list, logger):
         ContrastiveLearning(model, dataset, preprocessor_list, self.config, logger)
+        return model
 
 
 def ContrastiveLearning(model, dataset, preprocessor_list, config, logger):
@@ -65,7 +66,7 @@ def ContrastiveLearning(model, dataset, preprocessor_list, config, logger):
         collate_fn=dataset.collate_fn
     )
     
-    logger.info("Contrastive Learning Training Started----")
+    logger.info(f"Contrastive Learning Training on dataset {dataset.name} Started----")
     with logging_redirect_tqdm(loggers=[logger]):
         global_iter = 0
         with tqdm(total=max_iter, desc=f"Training Progress") as pbar:
@@ -113,5 +114,6 @@ def ContrastiveLearning(model, dataset, preprocessor_list, config, logger):
                     pbar.set_postfix(loss=loss.item(), epoch=epoch+1)
                     pbar.update(1)
 
-
     logger.info("Contrastive Learning Training Finished----")
+    
+    return model

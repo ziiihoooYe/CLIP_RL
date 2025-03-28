@@ -19,7 +19,7 @@ class RetrievalEvaluationExperiment(Experiment):
             collate_fn=dataset.collate_fn
         )
         sample_size = self.config.get("sample_size", 5000)
-        logger.info(f"Evaluating retrieval performance on {sample_size} samples")
+        logger.info(f"Evaluating retrieval performance on dataset {dataset.name} with {sample_size} samples")
         device = get_gpu_device(self.config.get("gpu", None))
         num_captions = dataset.config.get("num_captions", 1)
         loader_len = len(train_loader) if hasattr(train_loader, '__len__') else None
@@ -54,8 +54,7 @@ class RetrievalEvaluationExperiment(Experiment):
                 text_feature  = model.encode_text(captions)
                 
                 image_features.append(image_feature)
-                text_features.append(text_feature)
-                
+                text_features.append(text_feature) 
 
             image_features = torch.cat(image_features).squeeze()
             text_features = torch.cat(text_features).squeeze()
@@ -67,6 +66,8 @@ class RetrievalEvaluationExperiment(Experiment):
         values = [results[metric] for metric in metrics]
         df = pd.DataFrame([values], columns=metrics)
         logger.info(f"\n{df.to_string()}")
+        
+        return model
     
 
 def evaluate_retrieval(image_features, text_features, num_captions=5):

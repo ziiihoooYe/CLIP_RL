@@ -3,4 +3,5 @@ class Experiment:
         self.config = config
     
     def run(self, model, dataset, preprocessor_list, logger):
-        raise NotImplementedError
+        logger.info(self.config)
+        return model

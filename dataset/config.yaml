@@ -1,15 +1,22 @@
 cc12m_train_dataset:
   class: dataset.CC12M.CC12MTrainDataset
+  args:
+    name: cc12m_train
   
 cc3m_train_dataset:
   class: dataset.CC12M.CC3MTrainDataset
+  args:
+    name: cc3m_train
 
 cc3m_val_dataset:
   class: dataset.CC12M.CC3MValDataset
+  args:
+    name: cc3m_val
 
 coco_val_dataset:
   class: dataset.MSCOCO.MSCOCOVal2017Dataset
   args:
+    name: coco_val
     image_path: ./data/val2017
     annotations_path: ./data/val2017annotations/captions_val2017.json
     num_captions: 5

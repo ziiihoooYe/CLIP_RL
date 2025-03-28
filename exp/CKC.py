@@ -17,27 +17,42 @@ class CKCLearningExperiment(Experiment):
         super(CKCLearningExperiment, self).__init__(config)
     
     def run(self, model, dataset, preprocessor_list, logger):
-        CKCLearning(model, dataset, preprocessor_list, self.config, logger)
+        model = CKCLearning(model, dataset, preprocessor_list, self.config, logger)
+        return model
+
+class MLPProjector(nn.Module):
+    def __init__(self, dim_in, dim_out):
+        super().__init__()
+        self.fc1 = nn.Linear(dim_in, dim_out)
+        self.act = nn.ReLU()
+        self.fc2 = nn.Linear(dim_out, dim_out)
+    
+    def forward(self, x):
+        x = self.act(self.fc1(x))
+        x = self.fc2(x)
+        return x
+
 
 class FrozenWithProjector(nn.Module):
-    def __init__(self, base_model, projector):
+    def __init__(self, base_model, img_projector, txt_projector):
         super().__init__()
         # base_model
         self.base_model = base_model
         for param in self.base_model.parameters():
             param.requires_grad = False
-        self.projector = projector
+        self.img_projector = img_projector
+        self.txt_projector = txt_projector
 
     def encode_image(self, images):
         with torch.no_grad():
             feats = self.base_model.encode_image(images)
-        out = self.projector(feats)
+        out = self.img_projector(feats)
         return out
 
     def encode_text(self, texts):
         with torch.no_grad():
             feats = self.base_model.encode_text(texts)
-        out = self.projector(feats)
+        out = self.txt_projector(feats)
         return out
 
 
@@ -66,6 +81,7 @@ def CKCLearning(model, dataset, preprocessor_list, config, logger):
     amp_enabled = config.get("amp_enabled", False)
     update_iter = config.get("update_iter", 1)
     max_iter = config.get("max_iter", None)
+    infonce_weight = config.get("infonce_weight", 0.5)
 
     # prepare model
     old_model = copy.deepcopy(model)
@@ -74,8 +90,9 @@ def CKCLearning(model, dataset, preprocessor_list, config, logger):
         param.requires_grad = False
     projector_dim_in = config.get("projector_dim_in", 512)
     projector_dim_out = config.get("projector_dim_out", 512)
-    projector = nn.Linear(projector_dim_in, projector_dim_out)
-    new_model = FrozenWithProjector(old_model, projector)
+    img_projector = MLPProjector(projector_dim_in, projector_dim_out)
+    txt_projector = MLPProjector(projector_dim_in, projector_dim_out)
+    new_model = FrozenWithProjector(old_model, img_projector, txt_projector)
     new_model.to(device)
 
     # prepare optimizer
@@ -97,7 +114,7 @@ def CKCLearning(model, dataset, preprocessor_list, config, logger):
         collate_fn=dataset.collate_fn
     )
     
-    logger.info("CKC Learning Training Started----")
+    logger.info(f"CKC Learning Training on dataset {dataset.name} Started----")
     with logging_redirect_tqdm(loggers=[logger]) and tqdm(total=max_iter, desc=f"CKC Training Progress") as pbar:
         global_iter = 0
         for epoch in range(epochs):
@@ -124,7 +141,7 @@ def CKCLearning(model, dataset, preprocessor_list, config, logger):
 
                 # 4) CKC Loss
                 _ckc_loss = ckc_loss(old_image_embeds, old_text_embeds, image_embeds, text_embeds, temperature=ckc_temperature)
-                _loss = _ckc_loss
+                _loss = _ckc_loss * 0.0
                 
                 # 5) InfoNCE Loss
                 if temperature_learnable:
@@ -132,7 +149,7 @@ def CKCLearning(model, dataset, preprocessor_list, config, logger):
                 else:
                     temperature = temperature_init
                 _infonce_loss = infonce_loss(image_embeds, text_embeds, temperature=temperature)
-                _loss += _infonce_loss * 0.5
+                _loss += _infonce_loss * infonce_weight
 
                 # 5) Optimization
                 optimizer.zero_grad()
@@ -160,5 +177,6 @@ def CKCLearning(model, dataset, preprocessor_list, config, logger):
                     for param in old_model.parameters():
                         param.requires_grad = False
 
-    model = new_model
     logger.info("Contrastive Learning Training Finished----")
+    
+    return new_model
