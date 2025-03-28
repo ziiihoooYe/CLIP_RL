@@ -23,25 +23,12 @@ ckc_learning:
     temperature_init: 0.07
     temperature_learnable: false
     amp_enabled: false
-    num_workers: 4
-  
-retrieval:
-  class: exp.RetrievalEvaluation.RetrievalEvaluationExperiment
-  args:
-    sample_size: 1000
-    batch_size: 512
-    num_workers: 4
-    
-uniformity:
-  class: exp.Uniformity.UniformityExperiment
-  args:
-    sample_size: 1000
-    batch_size: 512
-    num_workers: 4
+    num_workers: 4  
 
-platonic_metric:
-  class: exp.PlatonicMetric.PlatonicMetricExperiment
+evaluation:
+  class: exp.Evaluation.EvaluationExperiment
   args:
+    metrics: {}
     sample_size: 1000
     batch_size: 512
     num_workers: 4

@@ -32,7 +32,6 @@ def ContrastiveLearning(model, dataset, preprocessor_list, config, logger):
     device = get_gpu_device(config.get("gpu", None))
     scaler = torch.amp.GradScaler()
 
-
     # hyperparameters
     epochs = config.get("epochs", 10)
     batch_size = config.get("batch_size", 32)

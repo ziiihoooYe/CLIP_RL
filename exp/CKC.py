@@ -7,7 +7,7 @@ from framework.experiments import Experiment
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from loss.infonce import infonce_loss
-from loss.ckc import ckc_loss
+from loss.ckc import ckc_loss, ckc_loss_test
 from utils.utils import get_gpu_device
 from tqdm.contrib.logging import logging_redirect_tqdm
 import copy
@@ -98,13 +98,13 @@ def CKCLearning(model, dataset, preprocessor_list, config, logger):
     # prepare optimizer
     if temperature_learnable:
         logit_scale = nn.Parameter(torch.tensor(math.log(1.0 / temperature_init)), requires_grad=True)
-        optimizer = optim.Adam([
+        optimizer = optim.AdamW([
             {"params": filter(lambda p: p.requires_grad, new_model.parameters())},
             {"params": [logit_scale]}
         ], lr=lr)
     else: 
         logit_scale = None
-        optimizer = optim.Adam(filter(lambda p: p.requires_grad, new_model.parameters()), lr=lr)
+        optimizer = optim.AdamW(filter(lambda p: p.requires_grad, new_model.parameters()), lr=lr)
     
     
     train_loader = DataLoader(
@@ -140,8 +140,9 @@ def CKCLearning(model, dataset, preprocessor_list, config, logger):
                 text_embeds  = new_model.encode_text(captions)
 
                 # 4) CKC Loss
-                _ckc_loss = ckc_loss(old_image_embeds, old_text_embeds, image_embeds, text_embeds, temperature=ckc_temperature)
-                _loss = _ckc_loss * 0.0
+                # _ckc_loss = ckc_loss(old_image_embeds, old_text_embeds, image_embeds, text_embeds, temperature=ckc_temperature)
+                _ckc_loss = ckc_loss_test(old_image_embeds, old_text_embeds, image_embeds, text_embeds, temperature=ckc_temperature)
+                _loss = _ckc_loss
                 
                 # 5) InfoNCE Loss
                 if temperature_learnable:

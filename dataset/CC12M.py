@@ -14,8 +14,7 @@ def cc_collate_fn(batch):
 
 class CCDataset(IterDataset):
     def __init__(self, config): 
-        self.dataset = load_dataset("pixparse/cc3m-wds", split="train", streaming=True)
-        self.config = config
+        super(CCDataset, self).__init__(config)
         self.collate_fn = cc_collate_fn
 
     def __getitem__(self, idx):
@@ -52,20 +51,17 @@ class CCDataset(IterDataset):
 
 class CC3MTrainDataset(CCDataset):
     def __init__(self, config): 
+        super(CC3MTrainDataset, self).__init__(config)
         self.dataset = load_dataset("pixparse/cc3m-wds", split="train", streaming=True)
-        self.config = config
-        self.collate_fn = cc_collate_fn
 
 
 class CC3MValDataset(CCDataset):
     def __init__(self, config): 
+        super(CC3MValDataset, self).__init__(config)
         self.dataset = load_dataset("pixparse/cc3m-wds", split="validation", streaming=True)
-        self.config = config
-        self.collate_fn = cc_collate_fn
 
 
 class CC12MTrainDataset(CCDataset):
     def __init__(self, config): 
+        super(CC12MTrainDataset, self).__init__(config)
         self.dataset = load_dataset("pixparse/cc12m-wds", split="train", streaming=True)
-        self.config = config
-        self.collate_fn = cc_collate_fn

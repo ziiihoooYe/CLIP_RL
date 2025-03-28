@@ -6,41 +6,50 @@ default:
 
 # Experiments Config
 exp: 
-  - class: ckc_learning
-    dataset:
-      # class: cc12m_train_dataset
-      class: coco_val_dataset
-    args:
-      infonce_weight: 0.1
-      epochs: 50
-      batch_size: 1024
-      update_iter: 500
-      ckc_temperature: 0.01
-      num_workers: 4
-  - class: platonic_metric
-    dataset:
-      class: coco_val_dataset
-    args:
-      sample_size: 5000
-      trials: 10
-  # - class: contrastive_learning
+  # - class: ckc_learning
   #   dataset:
-  #     # class: cc12m_train_dataset
-  #     class: coco_val_dataset
+  #     class: cc12m_train_dataset
+  #     # class: coco_val_dataset
   #   args:
-  #     epochs: 50
+  #     infonce_weight: 0.0
+  #     epochs: 100
   #     batch_size: 256
-  #     temperature_learnable: false
-  - class: retrieval
+  #     update_iter: 500
+  #     ckc_temperature: 0.07
+  #     num_workers: 4
+  - class: evaluation
     dataset:
       class: coco_val_dataset
     args:
       sample_size: 5000
-  - class: uniformity
+      metrics:
+        - retrieval
+        - uniformity
+        - platonic:
+            trials: 10
+
+  - class: contrastive_learning
+    dataset:
+      class: cc12m_train_dataset
+      # class: coco_val_dataset
+    args:
+      epochs: 50
+      batch_size: 512
+      max_iter: 1000
+      temperature_learnable: false
+  
+  - class: evaluation
     dataset:
       class: coco_val_dataset
     args:
       sample_size: 5000
+      metrics:
+        - retrieval
+        - uniformity
+        - platonic:
+            trials: 10
+
+
 
 # Model Config
 model:

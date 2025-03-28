@@ -1,14 +1,10 @@
-import torch
-import random
-import torchaudio.functional as TAF
-import numpy as np
-from sklearn.cross_decomposition import CCA
 import pandas as pd
-import numpy as np
 from tqdm import tqdm
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from framework.experiments import Experiment
+from utils.utils import get_gpu_device
 from tqdm.contrib.logging import logging_redirect_tqdm
 try:
     import pymp
@@ -20,9 +16,11 @@ except (ImportError, AttributeError):
     print("pymp library is not available or does not support Parallel. Falling back to sequential mode. For parallel speedup, please install a version of pymp that supports Parallel, e.g., `pip install pymp-pypi`")
 
 
-class PlatonicMetricExperiment(Experiment):
+class EvaluationExperiment(Experiment):
     def __init__(self, config):
-        super(PlatonicMetricExperiment, self).__init__(config)
+        super(EvaluationExperiment, self).__init__(config)
+        self.metrics = config.get('metrics', {})
+
     
     def run(self, model, dataset, preprocessor_list, logger):
         # Data Preparation and Hyperparameters
@@ -33,9 +31,9 @@ class PlatonicMetricExperiment(Experiment):
             collate_fn=dataset.collate_fn
         )
         sample_size = self.config.get("sample_size", 5000)
-        logger.info(f"Performing Platonic Metric on dataset {dataset.name} with {sample_size} samples")
+        logger.info(f"Evaluating retrieval performance on dataset {dataset.name} with {sample_size} samples")
+        device = get_gpu_device(self.config.get("gpu", None))
         num_captions = dataset.config.get("num_captions", 1)
-        trials = self.config.get("trials", 10)
         loader_len = len(train_loader) if hasattr(train_loader, '__len__') else None
         if loader_len is not None:
             loader_len = min(loader_len, sample_size // self.config.get("batch_size", 512) + 1)
@@ -59,9 +57,6 @@ class PlatonicMetricExperiment(Experiment):
                     processed_samples = sample_size
                 else:
                     processed_samples += batch_size
-                
-                if num_captions > 1:
-                    captions = [caption[random.randint(0, len(caption)-1)] for caption in captions]
 
                 ctx = None
                 for preprocessor in preprocessor_list:
@@ -76,30 +71,181 @@ class PlatonicMetricExperiment(Experiment):
             image_features = torch.cat(image_features).squeeze()
             text_features = torch.cat(text_features).squeeze()
 
-        # Platonic Metric
-        metric_dict = {}
-        for metric in AlignmentMetrics.SUPPORTED_METRICS:
-            scores = []
-            for t in range(trials):
-                kwargs = {}
-                if 'nn' in metric:
-                    kwargs['topk'] = 10
-                if 'cca' in metric:
-                    kwargs['cca_dim'] = 10
-                if 'kernel' in metric:
-                    kwargs['dist'] = 'sample'
+        # Evaluate Metric
+        for metric in self.metrics:
+            metric_name = list(metric.keys())[0] if isinstance(metric, dict) else metric
 
+            if metric_name == "retrieval":
+                evaluate_retrieval(logger, image_features, text_features, num_captions)
+            elif metric_name == "uniformity":
+                evaluate_uniformity(logger, image_features, text_features, num_captions)
+            elif metric_name == "platonic":
+                trials = metric.get("trials", 10) if isinstance(metric, dict) else 10
+                evaluate_platonic_metrics(logger, image_features, text_features, trials, num_captions) 
+            else:
+                raise NotImplementedError(f"Metric {metric} is not implemented")
+
+        return model
+    
+
+### -------------------- Retrieval Evaluation -------------------- ###
+def evaluate_retrieval(logger, image_features, text_features, num_captions=5):
+    """
+    Evaluate image-to-text (I2T) and text-to-image (T2I) retrieval performance.
+    
+    Args:
+        image_features (torch.Tensor): shape -> (N, D)
+        text_features (torch.Tensor): shape -> (N * num_captions, D)
+        num_captions (int): number of captions per image
+    
+    Returns:
+        dict: 
+            {
+                'I2T_top1': float,
+                'I2T_top5': float,
+                'I2T_top10': float,
+                'T2I_top1': float,
+                'T2I_top5': float,
+                'T2I_top10': float
+            }
+    """
+    num_images = image_features.size(0)
+    assert text_features.size(0) == num_images * num_captions, "Number of captions should match number of images"
+
+    # Normalize features
+    image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+    text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+    
+    # Compute similarity matrix
+    similarity = image_features @ text_features.t()
+    
+    # Evaluate image-to-text (I2T)
+    I2T_top1, I2T_top5, I2T_top10 = 0, 0, 0
+    for i in range(num_images):
+        sim_i = similarity[i]  # similarity of the i-th image with all texts
+        sorted_indices = torch.argsort(sim_i, descending=True)
+        gt_indices = list(range(i * num_captions, i * num_captions + num_captions))
+        if any(idx in sorted_indices[:1] for idx in gt_indices):
+            I2T_top1 += 1
+        if any(idx in sorted_indices[:5] for idx in gt_indices):
+            I2T_top5 += 1
+        if any(idx in sorted_indices[:10] for idx in gt_indices):
+            I2T_top10 += 1
+
+    I2T_top1_score = I2T_top1 / num_images
+    I2T_top5_score = I2T_top5 / num_images
+    I2T_top10_score = I2T_top10 / num_images
+
+    # Evaluate text-to-image (T2I)
+    similarity_t = similarity.t()
+    T2I_top1, T2I_top5, T2I_top10 = 0, 0, 0
+    for j in range(text_features.size(0)):
+        sim_j = similarity_t[j]
+        sorted_indices = torch.argsort(sim_j, descending=True)
+        gt_image = j // num_captions
+        if gt_image in sorted_indices[:1]:
+            T2I_top1 += 1
+        if gt_image in sorted_indices[:5]:
+            T2I_top5 += 1
+        if gt_image in sorted_indices[:10]:
+            T2I_top10 += 1
+
+    total_texts = text_features.size(0)
+    T2I_top1_score = T2I_top1 / total_texts
+    T2I_top5_score = T2I_top5 / total_texts
+    T2I_top10_score = T2I_top10 / total_texts
+
+    metrics = ['I2T_top1', 'I2T_top5', 'I2T_top10', 'T2I_top1', 'T2I_top5', 'T2I_top10']
+    values = [I2T_top1_score, I2T_top5_score, I2T_top10_score, T2I_top1_score, T2I_top5_score, T2I_top10_score]
+    df = pd.DataFrame([values], columns=metrics)
+    logger.info(f"\n{df.to_string()}")
+    
+    
+### -------------------- Alignment and Uniformity -------------------- ###
+# features: (N, D)
+def compute_alignment(text_features, image_features, alpha=2, captions_per_image=5):
+    # image_features: shape [N, D]
+    # text_features: shape [N * captions_per_image, D]
+    num_images, D = image_features.shape
+
+    # [N, captions_per_image, D]
+    text_features = text_features.reshape(num_images, captions_per_image, D)
+
+    # image_features 为 [N, 1, D] 以便广播
+    image_features_expanded = image_features[:, None, :]
+    
+    # Difference between image and text features
+    diff = text_features - image_features_expanded  # shape: [N, captions_per_image, D]
+    dist = np.linalg.norm(diff, axis=2)  # shape: [N, captions_per_image]
+
+    return np.mean(dist ** alpha)
+
+
+# uniformity metric
+def compute_uniformity_approx(features, t=2.0, num_samples=100000):
+    """
+    Approximate uniformity via random sampling of pairs.
+    
+    L = log( E_{x,y}[ exp(-t ||x-y||^2) ] )
+    """
+    N = features.shape[0]
+    # Randomly sample pairs (i, j)
+    idx1 = np.random.randint(0, N, size=num_samples)
+    idx2 = np.random.randint(0, N, size=num_samples)
+    
+    # Compute squared distances for the sampled pairs
+    diff = features[idx1] - features[idx2]
+    dist2 = np.sum(diff * diff, axis=-1)
+    
+    # Compute exp(-t * dist^2) and take the average
+    values = np.exp(-t * dist2)
+    avg = np.mean(values)
+    
+    return np.log(avg)
+
+
+def evaluate_uniformity(logger, image_features, text_features, num_captions=5):
+    img_uniformity_results = compute_uniformity_approx(image_features.cpu().numpy())
+    txt_uniformity_results = compute_uniformity_approx(text_features.cpu().numpy())
+    alignment_results = compute_alignment(text_features.cpu().numpy(), image_features.cpu().numpy(), captions_per_image=num_captions)
+    metrics = ["Image Uniformity", "Text Uniformity", "Alignment"]
+    values = [img_uniformity_results, txt_uniformity_results, alignment_results]
+    df = pd.DataFrame([values], columns=metrics)
+    logger.info(f"\n{df.to_string()}")
+
+
+### -------------------- Platonic Metrics -------------------- ###
+
+def evaluate_platonic_metrics(logger, image_features, text_features, trials=10, num_captions=5):
+
+    metric_dict = {}
+    for metric in AlignmentMetrics.SUPPORTED_METRICS:
+        scores = []
+        for t in range(trials):
+            kwargs = {}
+            if 'nn' in metric:
+                kwargs['topk'] = 10
+            if 'cca' in metric:
+                kwargs['cca_dim'] = 10
+            if 'kernel' in metric:
+                kwargs['dist'] = 'sample'
+            
+            if num_captions > 1:
+                text_features_copy = text_features.clone().view(image_features.size(0), num_captions, -1)
+                rand_idx = torch.randint(0, num_captions, (image_features.size(0),))
+                text_features_copy = text_features_copy[torch.arange(image_features.size(0)), rand_idx, :]
+                score = AlignmentMetrics.measure(metric, image_features, text_features_copy, **kwargs)
+                scores.append(score)
+            else:
                 score = AlignmentMetrics.measure(metric, image_features, text_features, **kwargs)
                 scores.append(score)
-            metric_dict[metric] = np.mean(scores)
-  
-        
-        metrics = AlignmentMetrics.SUPPORTED_METRICS
-        values = [metric_dict[metric] for metric in metrics]
-        df = pd.DataFrame([values], columns=metrics)
-        logger.info(f"\n{df.to_string()}")
+        metric_dict[metric] = np.mean(scores)
     
-        return model
+    metrics = AlignmentMetrics.SUPPORTED_METRICS
+    values = [metric_dict[metric] for metric in metrics]
+    df = pd.DataFrame([values], columns=metrics)
+    logger.info(f"\n{df.to_string()}")
+
 
 class AlignmentMetrics:
 
@@ -216,6 +362,8 @@ class AlignmentMetrics:
     
     @staticmethod
     def svcca(feats_A, feats_B, cca_dim=10):
+        
+        from sklearn.cross_decomposition import CCA
 
         # Center and scale the activations
         def preprocess_activations(act):
@@ -254,6 +402,8 @@ class AlignmentMetrics:
         """
         Computes the edit distance between the nearest neighbors of feats_A and feats_B.
         """
+        import torchaudio.functional as TAF
+        
         knn_A = compute_nearest_neighbors(feats_A, topk)
         knn_B = compute_nearest_neighbors(feats_B, topk)
         
@@ -428,5 +578,6 @@ def remove_outliers(feats, q, exact=False, max_threshold=None):
         max_threshold = max(max_threshold, q_val)
 
     return feats.clamp(-q_val, q_val)
+
 
 
