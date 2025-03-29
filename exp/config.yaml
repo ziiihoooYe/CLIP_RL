@@ -11,7 +11,7 @@ contrastive_learning:
     num_workers: 4
 
 ckc_learning:
-  class: exp.CKC.CKCLearningExperiment
+  class: exp.CKCLearning.CKCLearningExperiment
   args:
     epochs: 50
     batch_size: 512

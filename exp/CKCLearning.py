@@ -4,6 +4,7 @@ import random
 import torch.nn as nn
 from tqdm import tqdm
 from framework.experiments import Experiment
+from utils.utils import gpu_prep, get_main_device
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from loss.infonce import infonce_loss
@@ -42,6 +43,17 @@ class FrozenWithProjector(nn.Module):
         self.img_projector = img_projector
         self.txt_projector = txt_projector
 
+    def to(self, device):
+        """
+        Move the model to the specified device.
+        :param device: The device to move the model to (e.g., 'cuda', 'cpu').
+        :return: self
+        """
+        self.base_model = self.base_model.to(device)
+        self.img_projector = self.img_projector.to(device)
+        self.txt_projector = self.txt_projector.to(device)
+        return super().to(device)
+
     def encode_image(self, images):
         with torch.no_grad():
             feats = self.base_model.encode_image(images)
@@ -53,6 +65,15 @@ class FrozenWithProjector(nn.Module):
             feats = self.base_model.encode_text(texts)
         out = self.txt_projector(feats)
         return out
+    
+    def forward(self, images, texts):
+        """
+        Forward pass through the model.
+        """
+        # encode image and text
+        image_feats = self.encode_image(images)
+        text_feats = self.encode_text(texts)
+        return image_feats, text_feats
 
 
 def CKCLearning(model, dataset, preprocessor_list, config, logger, device):
@@ -82,16 +103,37 @@ def CKCLearning(model, dataset, preprocessor_list, config, logger, device):
     infonce_weight = config.get("infonce_weight", 0.5)
 
     # prepare model
-    old_model = copy.deepcopy(model)
-    old_model.eval()
-    for param in old_model.parameters():
-        param.requires_grad = False
-    projector_dim_in = config.get("projector_dim_in", 512)
-    projector_dim_out = config.get("projector_dim_out", 512)
-    img_projector = MLPProjector(projector_dim_in, projector_dim_out)
-    txt_projector = MLPProjector(projector_dim_in, projector_dim_out)
-    new_model = FrozenWithProjector(old_model, img_projector, txt_projector)
-    new_model.to(device)
+    if not isinstance(model, FrozenWithProjector):
+        # new model
+        base = model.module if hasattr(model, 'module') else model
+        base.eval()
+        for p in base.parameters():
+            p.requires_grad = False 
+        projector_dim_in = config.get("projector_dim_in", 512)
+        projector_dim_out = config.get("projector_dim_out", 512)
+        img_projector = MLPProjector(projector_dim_in, projector_dim_out)
+        txt_projector = MLPProjector(projector_dim_in, projector_dim_out)
+        new_model = FrozenWithProjector(base, img_projector, txt_projector).to(get_main_device(config.get("gpu", None)))
+        new_model, _ = gpu_prep(new_model, config.get("gpu", None))
+        new_model.train()
+
+        # old model
+        old_model = copy.deepcopy(base)
+        old_model.to(get_main_device(config.get("gpu", None)))
+        old_model, _ = gpu_prep(old_model, config.get("gpu", None))
+        old_model.eval()
+        for param in old_model.parameters():
+            param.requires_grad = False
+
+    else:
+        # new model
+        old_model = model.old_model
+        old_model.eval()
+
+        # old model
+        new_model = model
+        new_model.train()
+        
 
     # prepare optimizer
     if temperature_learnable:
@@ -104,7 +146,7 @@ def CKCLearning(model, dataset, preprocessor_list, config, logger, device):
         logit_scale = None
         optimizer = optim.AdamW(filter(lambda p: p.requires_grad, new_model.parameters()), lr=lr)
     
-    
+    # DataLoader
     train_loader = DataLoader(
         dataset,
         batch_size=batch_size,
@@ -112,34 +154,40 @@ def CKCLearning(model, dataset, preprocessor_list, config, logger, device):
         collate_fn=dataset.collate_fn
     )
     
+    # Start training
     logger.info(f"CKC Learning Training on dataset {dataset.name} Started----")
+    break_flag = False
     with logging_redirect_tqdm(loggers=[logger]) and tqdm(total=max_iter, desc=f"CKC Training Progress") as pbar:
         global_iter = 0
+        
         for epoch in range(epochs):
+            if break_flag:
+                break
+            
             for i, (images, captions) in enumerate(train_loader):
                 if max_iter is not None and global_iter >= max_iter:
                     break
 
+                # deal with the case when one image corresponds to multiple captions
                 ctx = None
                 if dataset.config.get("num_captions", 1) > 1:
                     captions = [caption[random.randint(0, len(caption)-1)] for caption in captions]
 
+                # data preprocessing
                 for preprocessor in preprocessor_list:
                     images, captions, ctx = preprocessor.preprocess(images, captions, ctx)
 
                 ### Each iteration
                 # 1) old_model features (no_grad)
                 with torch.no_grad():
-                    old_image_embeds = old_model.encode_image(images)
-                    old_text_embeds  = old_model.encode_text(captions)
+                    old_image_embeds, old_text_embeds = old_model(images, captions)
 
                 # 2) new_model features
-                image_embeds = new_model.encode_image(images)
-                text_embeds  = new_model.encode_text(captions)
+                image_embeds, text_embeds = new_model(images, captions)
 
                 # 4) CKC Loss
-                # _ckc_loss = ckc_loss(old_image_embeds, old_text_embeds, image_embeds, text_embeds, temperature=ckc_temperature)
-                _ckc_loss = ckc_loss_test(old_image_embeds, old_text_embeds, image_embeds, text_embeds, temperature=ckc_temperature)
+                _ckc_loss = ckc_loss(old_image_embeds, old_text_embeds, image_embeds, text_embeds, temperature=ckc_temperature)
+                # _ckc_loss = ckc_loss_test(old_image_embeds, old_text_embeds, image_embeds, text_embeds, temperature=ckc_temperature)
                 _loss = _ckc_loss
                 
                 # 5) InfoNCE Loss
@@ -162,14 +210,17 @@ def CKCLearning(model, dataset, preprocessor_list, config, logger, device):
                 scaler.step(optimizer)
                 scaler.update()
                 
+                # clamp logit scale if it's learnable
                 if temperature_learnable:
                     with torch.no_grad():
                         logit_scale.clamp_(0.0, math.log(100.0))
 
+                # update progress bar
                 global_iter += 1
                 pbar.set_postfix(loss=_loss.item(), epoch=epoch+1)
                 pbar.update(1)
 
+                # update the old_model every `update_iter` iterations
                 if global_iter % update_iter == 0:
                     old_model = copy.deepcopy(new_model)
                     old_model.eval()
@@ -177,5 +228,6 @@ def CKCLearning(model, dataset, preprocessor_list, config, logger, device):
                         param.requires_grad = False
 
     logger.info("Contrastive Learning Training Finished----")
+    model.old_model = new_model
     
     return new_model

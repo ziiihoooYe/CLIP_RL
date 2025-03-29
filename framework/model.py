@@ -9,6 +9,9 @@ class Model(nn.Module):
         # - model: the callable model object
         self.config = config
         self.model = None
+        self.iter_now = None # this is used to track the current iteration during training
+        self.stored_img_feat = {}
+        self.stored_txt_feat = {}
     
     def forward(self, *args, **kwargs):
         raise NotImplementedError("forward method must be implemented")
@@ -20,8 +23,10 @@ class Model(nn.Module):
         try:
             return super().__getattr__(name)
         except AttributeError:
-            return getattr(self.module, name)
-        
+            if hasattr(self.model, 'module'):
+                return getattr(self.model.module, name)
+            return getattr(self.model, name)
+    
     def parameters(self):
         return self.model.parameters()
 

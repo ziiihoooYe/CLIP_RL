@@ -44,8 +44,9 @@ class CCDataset(IterDataset):
                 image = data_item['jpg']
                 caption = data_item['json']['caption']
                 yield image, caption
+            except (SyntaxError, OSError, ValueError) as e:
+                continue
             except Exception as e:
-                print(f"Error loading data: {e}")
                 continue
             
 

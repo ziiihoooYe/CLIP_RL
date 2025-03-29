@@ -12,3 +12,6 @@ __pycache__/
 
 # log files
 *.log
+
+# eigenfunction results
+eigenfunction_analysis*/

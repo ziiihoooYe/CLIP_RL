@@ -1,6 +1,8 @@
+import os
 import pandas as pd
 from tqdm import tqdm
 import numpy as np
+import matplotlib.pyplot as plt
 import torch
 from torch.utils.data import DataLoader
 from framework.experiments import Experiment
@@ -22,6 +24,9 @@ class EvaluationExperiment(Experiment):
 
     
     def run(self, model, dataset, preprocessor_list, logger, device):
+        # iter of the model
+        iter_now = 0 if getattr(model, 'iter_now') is None else getattr(model, 'iter_now')
+
         # Data Preparation and Hyperparameters
         train_loader = DataLoader(
             dataset,
@@ -30,12 +35,12 @@ class EvaluationExperiment(Experiment):
             collate_fn=dataset.collate_fn
         )
         sample_size = self.config.get("sample_size", 5000)
-        logger.info(f"Evaluating retrieval performance on dataset {dataset.name} with {sample_size} samples")
         num_captions = dataset.config.get("num_captions", 1)
         loader_len = len(train_loader) if hasattr(train_loader, '__len__') else None
         if loader_len is not None:
-            loader_len = min(loader_len, sample_size // self.config.get("batch_size", 512) + 1)
+            loader_len = min(loader_len, sample_size // self.config.get("batch_size", 512) + 1) 
         model.eval()
+        logger.info(f"Extracting Representations on dataset {dataset.name} with {sample_size} samples (iter={iter_now}).")
         
         # Extract Features
         image_features = []
@@ -44,8 +49,9 @@ class EvaluationExperiment(Experiment):
 
         with logging_redirect_tqdm(loggers=[logger]) and torch.no_grad():
             for i, (images, captions) in enumerate(tqdm(train_loader, total=loader_len, desc="Extracting Features")):
-                batch_size = len(images)
 
+                # deal with the case when one image corresponds to multiple captions
+                batch_size = len(images)
                 if processed_samples >= sample_size:
                     break
                 if processed_samples + batch_size > sample_size:
@@ -56,19 +62,22 @@ class EvaluationExperiment(Experiment):
                 else:
                     processed_samples += batch_size
 
+                # data preprocessing
                 ctx = None
                 for preprocessor in preprocessor_list:
                     images, captions, ctx = preprocessor.preprocess(images, captions, ctx)
 
-                # image_feature = model.encode_image(images)
-                # text_feature  = model.encode_text(captions)
-                image_feature, text_feature = model(images, captions)
-                
+                # Extract features from the model
+                image_feature, text_feature = model(images, captions) 
                 image_features.append(image_feature)
                 text_features.append(text_feature) 
 
             image_features = torch.cat(image_features).squeeze()
             text_features = torch.cat(text_features).squeeze()
+
+        # store the features for the current iteration
+        model.stored_img_feat[f'iter: {str(iter_now)}'] = image_features
+        model.stored_txt_feat[f'iter: {str(iter_now)}'] = text_features
 
         # Evaluate Metric
         for metric in self.metrics:
@@ -81,6 +90,11 @@ class EvaluationExperiment(Experiment):
             elif metric_name == "platonic":
                 trials = metric.get("trials", 10) if isinstance(metric, dict) else 10
                 evaluate_platonic_metrics(logger, image_features, text_features, trials, num_captions) 
+            elif metric_name == "eigenfunction":
+                save_path = self.config.get("save_path", "./eigenfunction_analysis")
+                if not os.path.exists(save_path):
+                    os.makedirs(save_path)
+                eigenfunction_evaluate(model.stored_img_feat, model.stored_txt_feat, save_path, logger)
             else:
                 raise NotImplementedError(f"Metric {metric} is not implemented")
 
@@ -579,4 +593,172 @@ def remove_outliers(feats, q, exact=False, max_threshold=None):
     return feats.clamp(-q_val, q_val)
 
 
+### --------------------- Eigenfunction Analysis --------------------- ###
+def compare_topk_differences_sorted(model_repr_pairs, save_path, top_k=16, plot=True):
 
+    data = {}
+    for model_name, (img_repr, txt_repr) in model_repr_pairs.items():
+        if hasattr(img_repr, "numpy"):
+            img_repr = img_repr.cpu().numpy()
+        if hasattr(txt_repr, "numpy"):
+            txt_repr = txt_repr.cpu().numpy()
+        
+        mean_img = img_repr.mean(axis=0)
+        mean_txt = txt_repr.mean(axis=0)
+        diff = np.abs(mean_img - mean_txt)
+        sorted_diff = np.sort(diff)[::-1]
+        topk_values = sorted_diff[:top_k]
+        data[model_name] = topk_values
+
+    ranks = [f"Rank {i+1}" for i in range(top_k)]
+    df_all = pd.DataFrame(data, index=ranks)
+
+    if plot:
+        plt.figure(figsize=(8, 5))
+        for model_name in data.keys():
+            plt.plot(df_all[model_name].values, marker='o', label=model_name)
+        plt.title(f"Top-K Mean Differences (Descending) for Each Iter")
+        plt.xlabel("Rank (1 = largest difference)")
+        plt.ylabel("Absolute Mean Difference")
+        plt.legend()
+        plt.savefig(os.path.join(save_path, f"topk_differences.png"))
+
+    return df_all
+
+
+def plot_multiple_models_sorted_stats(model_repr_dict, save_path, stat_type='mean', top_k=16):
+
+    plt.figure(figsize=(8, 5))
+    for model_name, repr_data in model_repr_dict.items():
+        if hasattr(repr_data, 'cpu'):
+            repr_data = repr_data.cpu().numpy()
+        if stat_type == 'mean':
+            stats = repr_data.mean(axis=0)
+            ylabel = 'Mean'
+        elif stat_type == 'variance':
+            stats = repr_data.var(axis=0)
+            ylabel = 'Variance'
+        else:
+            raise ValueError("stat_type has to be 'mean' or 'variance'")
+
+        sorted_stats = np.sort(stats)[::-1][:top_k]
+        ranks = np.arange(1, top_k+1)
+        plt.plot(ranks, sorted_stats, marker='o', label=model_name)
+
+    plt.xlabel('Rank (1 = largest)')
+    plt.ylabel(ylabel)
+    plt.title(f"Top {top_k} {ylabel}s (Sorted Descending) for Multiple Models")
+    plt.legend()
+    plt.savefig(os.path.join(save_path, f"top_{top_k}_{stat_type}.png"))
+
+
+def plot_multiple_models_repr_stats_sorted(model_repr_pairs, save_path, top_k=16):
+
+    stats_dict = {}
+    for model_name, (img_repr, txt_repr) in model_repr_pairs.items():
+        if hasattr(img_repr, 'cpu'):
+            img_repr = img_repr.cpu().numpy()
+        if hasattr(txt_repr, 'cpu'):
+            txt_repr = txt_repr.cpu().numpy()
+        img_mean = img_repr.mean(axis=0)
+        img_var  = img_repr.var(axis=0)
+        txt_mean = txt_repr.mean(axis=0)
+        txt_var  = txt_repr.var(axis=0)
+
+        diff = np.abs(img_mean - txt_mean)
+        sorted_indices = np.argsort(diff)[::-1]
+        topk_indices = sorted_indices[:top_k]
+
+        sorted_img_mean = img_mean[topk_indices]
+        sorted_img_var  = img_var[topk_indices]
+        sorted_txt_mean = txt_mean[topk_indices]
+        sorted_txt_var  = txt_var[topk_indices]
+
+        stats_dict[model_name] = {
+            'topk_indices': topk_indices,
+            'img_mean': sorted_img_mean,
+            'img_var': sorted_img_var,
+            'txt_mean': sorted_txt_mean,
+            'txt_var': sorted_txt_var
+        }
+
+    ranks = np.arange(1, top_k+1)
+    fig, axs = plt.subplots(2, 2, figsize=(12, 10))
+
+    ax = axs[0, 0]
+    for model_name, stats in stats_dict.items():
+        ax.plot(ranks, stats['img_mean'], marker='o', label=model_name)
+    ax.set_title("Image Mean (sorted by top difference)")
+    ax.set_xlabel("Rank (1 = highest diff)")
+    ax.set_ylabel("Mean")
+    ax.legend()
+
+    ax = axs[0, 1]
+    for model_name, stats in stats_dict.items():
+        ax.plot(ranks, stats['img_var'], marker='o', label=model_name)
+    ax.set_title("Image Variance (sorted by top difference)")
+    ax.set_xlabel("Rank (1 = highest diff)")
+    ax.set_ylabel("Variance")
+    ax.legend()
+
+    ax = axs[1, 0]
+    for model_name, stats in stats_dict.items():
+        ax.plot(ranks, stats['txt_mean'], marker='o', label=model_name)
+    ax.set_title("Text Mean (sorted by top difference)")
+    ax.set_xlabel("Rank (1 = highest diff)")
+    ax.set_ylabel("Mean")
+    ax.legend()
+
+    ax = axs[1, 1]
+    for model_name, stats in stats_dict.items():
+        ax.plot(ranks, stats['txt_var'], marker='o', label=model_name)
+    ax.set_title("Text Variance (sorted by top difference)")
+    ax.set_xlabel("Rank (1 = highest diff)")
+    ax.set_ylabel("Variance")
+    ax.legend()
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, f"repr_stats_sorted.png"))
+
+    return stats_dict
+
+
+def eigenfunction_evaluate(stored_img_results, stored_txt_results, save_path, logger, plot=True):
+
+    model_repr_pairs = {
+        iter_name: (stored_img_results[iter_name], stored_txt_results[iter_name])
+        for iter_name in stored_img_results.keys()
+    }
+    
+    # compare_topk_diff
+    df_diff = compare_topk_differences_sorted(
+        model_repr_pairs,
+        save_path=save_path,
+        plot=plot
+    )
+    logger.info(f"[EigenEvaluation] Top-K differences:\n{df_diff}")
+
+    # plot_sorted_stats (mean/variance)
+    plot_multiple_models_sorted_stats(
+        stored_img_results,
+        save_path=save_path,
+        stat_type='mean',
+    )
+    plot_multiple_models_sorted_stats(
+        stored_img_results,
+        stat_type='variance',
+        save_path=save_path,
+    )
+    plot_multiple_models_sorted_stats(
+        stored_txt_results,
+        stat_type='mean',
+        save_path=save_path,
+    )
+    plot_multiple_models_sorted_stats(
+        stored_txt_results,
+        stat_type='variance',
+        save_path=save_path,
+    )
+
+    stats_dict = plot_multiple_models_repr_stats_sorted(model_repr_pairs, save_path=save_path)
+    logger.info(f"[EigenEvaluation] Stats dict from repr analysis: \n{stats_dict}")

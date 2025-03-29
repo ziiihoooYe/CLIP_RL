@@ -54,67 +54,80 @@ def ContrastiveLearning(model, dataset, preprocessor_list, config, logger, devic
         logit_scale = None
         optimizer = optim.Adam(model.parameters(), lr=lr)
         
-    
+    # DataLoader
     train_loader = DataLoader(
         dataset,
         batch_size=batch_size,
         num_workers=num_workers,
         collate_fn=dataset.collate_fn
     )
-    
+
+    # Start training
     logger.info(f"Contrastive Learning Training on dataset {dataset.name} Started----")
     break_flag = False
     with logging_redirect_tqdm(loggers=[logger]):
         global_iter = 0
+
         with tqdm(total=max_iter, desc=f"Training Progress") as pbar:
+
             for epoch in range(epochs):
                 if break_flag:
                     break
-                total_loss = 0.0
+
                 for i, (images, captions) in enumerate(train_loader):
                     if max_iter is not None and global_iter >= max_iter:
                         break_flag = True
                         break
 
+                    # deal with the case when one image corresponds to multiple captions
                     ctx = None
                     if dataset.config.get("num_captions", 1) > 1:
                         captions = [caption[random.randint(0, len(caption)-1)] for caption in captions]
 
+                    # data preprocessing
                     for preprocessor in preprocessor_list:
                         images, captions, ctx = preprocessor.preprocess(images, captions, ctx)
 
-                    with torch.amp.autocast('cuda' if 'cuda' in device else 'cpu', enabled=amp_enabled):
-                        # image_embeds = model.encode_image(images)
-                        # text_embeds  = model.encode_text(captions)
+                    # start forward pass (with AMP if enabled)
+                    with torch.amp.autocast(device, enabled=amp_enabled):
                         image_embeds, text_embeds = model(images, captions)
 
+                        # if temperature is learnable, calculate the temperature
                         if temperature_learnable:
                             temperature = (1.0 / logit_scale.exp()).clamp(min=0.01, max=1.0)
                         else:
                             temperature = temperature_init
+                        
+                        # Calculate the contrastive loss
                         loss = infonce_loss(image_embeds, text_embeds, temperature=temperature)
 
+                    # backpropagation
                     optimizer.zero_grad()
                     scaler.scale(loss).backward()
                     scaler.unscale_(optimizer)
+                    
+                    # gradient clipping
                     if temperature_learnable:
                         all_params = list(model.parameters()) + [logit_scale]
                     else:
                         all_params = list(model.parameters())
                     torch.nn.utils.clip_grad_norm_(all_params, max_norm=1.0)
 
+                    # optimizer step
                     scaler.step(optimizer)
                     scaler.update()
 
+                    # clamp logit scale if it's learnable
                     if temperature_learnable:
                         with torch.no_grad():
                             logit_scale.clamp_(0.0, math.log(100.0))
 
-                    total_loss += loss.item()
+                    # update progress bar
                     global_iter += 1
                     pbar.set_postfix(loss=loss.item(), epoch=epoch+1)
                     pbar.update(1)
-
+    
+    model.iter_now = global_iter  # update the current iteration number of the model
     logger.info("Contrastive Learning Training Finished----")
     
     return model
