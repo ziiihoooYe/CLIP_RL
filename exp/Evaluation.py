@@ -4,7 +4,6 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from framework.experiments import Experiment
-from utils.utils import get_gpu_device
 from tqdm.contrib.logging import logging_redirect_tqdm
 try:
     import pymp
@@ -22,7 +21,7 @@ class EvaluationExperiment(Experiment):
         self.metrics = config.get('metrics', {})
 
     
-    def run(self, model, dataset, preprocessor_list, logger):
+    def run(self, model, dataset, preprocessor_list, logger, device):
         # Data Preparation and Hyperparameters
         train_loader = DataLoader(
             dataset,
@@ -32,7 +31,6 @@ class EvaluationExperiment(Experiment):
         )
         sample_size = self.config.get("sample_size", 5000)
         logger.info(f"Evaluating retrieval performance on dataset {dataset.name} with {sample_size} samples")
-        device = get_gpu_device(self.config.get("gpu", None))
         num_captions = dataset.config.get("num_captions", 1)
         loader_len = len(train_loader) if hasattr(train_loader, '__len__') else None
         if loader_len is not None:
@@ -62,8 +60,9 @@ class EvaluationExperiment(Experiment):
                 for preprocessor in preprocessor_list:
                     images, captions, ctx = preprocessor.preprocess(images, captions, ctx)
 
-                image_feature = model.encode_image(images)
-                text_feature  = model.encode_text(captions)
+                # image_feature = model.encode_image(images)
+                # text_feature  = model.encode_text(captions)
+                image_feature, text_feature = model(images, captions)
                 
                 image_features.append(image_feature)
                 text_features.append(text_feature) 

@@ -1,4 +1,5 @@
 import os
+import torch.nn as nn
 import torch
 import yaml
 import importlib
@@ -10,12 +11,42 @@ module_config_map = {
     "exp": "exp/config.yaml"
 }
 
-def get_gpu_device(device):
-    import os
-    if device is not None and torch.cuda.is_available():
-        return f"cuda:{device}"
+class _DataParallel(nn.DataParallel):
+    def __getattr__(self, name):
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            return getattr(self.module, name)
+    
+    def parameters(self):
+        return self.module.parameters()
+      
+
+def get_main_device(device):
+    if device == 'cpu' or device is None:
+        return device
+    elif isinstance(device, int):
+        return f"cuda:{str(device)}"
     else:
-        return "cpu"
+        device_ids = device.strip("[]").replace(" ", "")
+        return f"cuda:{str(device_ids[0])}"
+    
+    
+def gpu_prep(model, device):
+    if device is not None and torch.cuda.is_available(): 
+        if isinstance(device, int):
+            # single GPU
+            model = _DataParallel(model, device_ids=[device])
+            return model, "cuda"
+        else:
+            # multiple GPUs
+            device_ids = device.strip("[]").replace(" ", "")      
+            device_ids = [int(x) for x in device_ids.split(",")]
+            model = _DataParallel(model, device_ids=device_ids)
+            return model, "cuda"
+    else:
+        # no GPU available
+        return model.to("cpu"), "cpu"
 
 
 def read_config(path: str) -> dict:

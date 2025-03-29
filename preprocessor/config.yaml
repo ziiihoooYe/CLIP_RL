@@ -32,3 +32,7 @@ text_preprocessor:
   class: preprocessor.clip_preprocessor.TextPreprocessor
   args:
     cutoff_length: 77
+
+to_batch_preprocessor:
+  class: preprocessor.clip_preprocessor.ToBatchPreprocessor
+  args:

@@ -7,19 +7,18 @@ from framework.experiments import Experiment
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from loss.infonce import infonce_loss
-from utils.utils import get_gpu_device
 from tqdm.contrib.logging import logging_redirect_tqdm
 
 class ContrastiveLearningExperiment(Experiment):
     def __init__(self, config):
         super(ContrastiveLearningExperiment, self).__init__(config)
     
-    def run(self, model, dataset, preprocessor_list, logger):
-        ContrastiveLearning(model, dataset, preprocessor_list, self.config, logger)
+    def run(self, model, dataset, preprocessor_list, logger, device):
+        ContrastiveLearning(model, dataset, preprocessor_list, self.config, logger, device)
         return model
 
 
-def ContrastiveLearning(model, dataset, preprocessor_list, config, logger):
+def ContrastiveLearning(model, dataset, preprocessor_list, config, logger, device):
     """
     model: model with encode_image and encode_text method
     dataset: dataset with __getitem__ and __len__ method
@@ -29,7 +28,6 @@ def ContrastiveLearning(model, dataset, preprocessor_list, config, logger):
     ### --------------------
     ### Instantiation
     ### --------------------
-    device = get_gpu_device(config.get("gpu", None))
     scaler = torch.amp.GradScaler()
 
     # hyperparameters
@@ -43,7 +41,6 @@ def ContrastiveLearning(model, dataset, preprocessor_list, config, logger):
     max_iter = config.get("max_iter", None)
 
     # prepare model
-    model.to(device)
     model.train()
 
     # prepare optimizer
@@ -66,13 +63,17 @@ def ContrastiveLearning(model, dataset, preprocessor_list, config, logger):
     )
     
     logger.info(f"Contrastive Learning Training on dataset {dataset.name} Started----")
+    break_flag = False
     with logging_redirect_tqdm(loggers=[logger]):
         global_iter = 0
         with tqdm(total=max_iter, desc=f"Training Progress") as pbar:
             for epoch in range(epochs):
+                if break_flag:
+                    break
                 total_loss = 0.0
                 for i, (images, captions) in enumerate(train_loader):
                     if max_iter is not None and global_iter >= max_iter:
+                        break_flag = True
                         break
 
                     ctx = None
@@ -83,8 +84,9 @@ def ContrastiveLearning(model, dataset, preprocessor_list, config, logger):
                         images, captions, ctx = preprocessor.preprocess(images, captions, ctx)
 
                     with torch.amp.autocast('cuda' if 'cuda' in device else 'cpu', enabled=amp_enabled):
-                        image_embeds = model.encode_image(images)
-                        text_embeds  = model.encode_text(captions)
+                        # image_embeds = model.encode_image(images)
+                        # text_embeds  = model.encode_text(captions)
+                        image_embeds, text_embeds = model(images, captions)
 
                         if temperature_learnable:
                             temperature = (1.0 / logit_scale.exp()).clamp(min=0.01, max=1.0)

@@ -1,6 +1,6 @@
 # Default Config
 default:
-  gpu: 2
+  gpu: [1, 2, 3]
   log_file: clip_log.log
 
 
@@ -34,7 +34,7 @@ exp:
       # class: coco_val_dataset
     args:
       epochs: 50
-      batch_size: 512
+      batch_size: 1024
       max_iter: 1000
       temperature_learnable: false
   
@@ -67,3 +67,5 @@ preprocessor:
   - class: text_preprocessor
     args:
       cutoff_length: 77
+  - class: to_batch_preprocessor
+    args:

@@ -8,7 +8,6 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from loss.infonce import infonce_loss
 from loss.ckc import ckc_loss, ckc_loss_test
-from utils.utils import get_gpu_device
 from tqdm.contrib.logging import logging_redirect_tqdm
 import copy
 
@@ -16,8 +15,8 @@ class CKCLearningExperiment(Experiment):
     def __init__(self, config):
         super(CKCLearningExperiment, self).__init__(config)
     
-    def run(self, model, dataset, preprocessor_list, logger):
-        model = CKCLearning(model, dataset, preprocessor_list, self.config, logger)
+    def run(self, model, dataset, preprocessor_list, logger, device):
+        model = CKCLearning(model, dataset, preprocessor_list, self.config, logger, device)
         return model
 
 class MLPProjector(nn.Module):
@@ -56,7 +55,7 @@ class FrozenWithProjector(nn.Module):
         return out
 
 
-def CKCLearning(model, dataset, preprocessor_list, config, logger):
+def CKCLearning(model, dataset, preprocessor_list, config, logger, device):
     """
     model: model with encode_image and encode_text method
     dataset: dataset with __getitem__ and __len__ method
@@ -66,7 +65,6 @@ def CKCLearning(model, dataset, preprocessor_list, config, logger):
     ### --------------------
     ### Instantiation
     ### --------------------
-    device = get_gpu_device(config.get("gpu", None))
     scaler = torch.amp.GradScaler()
 
     # hyperparameters

@@ -7,6 +7,26 @@ import numpy as np
 import random
 import litellm
 
+
+class ToBatchPreprocessor(Preprocessor):
+    """
+    Preprocessor that converts images and texts to batches.
+    """
+    def __init__(self, config):
+        self.config = config
+    
+    def preprocess(self, img_data, txt_data, context=None):
+        # Convert images to batch tensors
+        if img_data is not None:
+            img_data = torch.stack(img_data)
+        
+        # Convert texts to batch tensors
+        if txt_data is not None:
+            txt_data = torch.cat(txt_data, dim=0)
+        
+        return img_data, txt_data, context
+
+
 class ImagePreprocessor(Preprocessor):
     """
     Standard CLIP preprocessing:

@@ -19,6 +19,7 @@ def main():
     
     # model
     model = instantiate_module('model', config["model"], defaults)
+    model, device = gpu_prep(model, defaults.get("gpu", None))
 
     # preprocessor
     preprocessor_list = [
@@ -32,7 +33,7 @@ def main():
     # Experiment
     # ----------------
     for exp_config in config["exp"]:
-        model = ExperimentFactory.run(model, exp_config, preprocessor_list, defaults, logger)
+        model = ExperimentFactory.run(model, exp_config, preprocessor_list, defaults, logger, device)
         
 
 if __name__ == "__main__":

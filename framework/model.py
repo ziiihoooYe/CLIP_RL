@@ -1,6 +1,8 @@
+import torch.nn as nn
 
-class Model:
+class Model(nn.Module):
     def __init__(self, config):
+        super().__init__()
         # config is a dict containing the configuration for the model
         # Model Object should have the following attributes:
         # - config: configuration for the model
@@ -8,20 +10,17 @@ class Model:
         self.config = config
         self.model = None
     
-    def load(self, model_path):
-        raise NotImplementedError("load method must be implemented")
-
-    def save(self, model_path):
-        raise NotImplementedError("save method must be implemented")
-
-    def to(self, device):
-        self.model.to(device)
+    def forward(self, *args, **kwargs):
+        raise NotImplementedError("forward method must be implemented")
     
-    def train(self):
-        self.model.train()
+    def device(self):
+        return next(self.model.parameters()).device
     
-    def eval(self):
-        self.model.eval()
+    def __getattr__(self, name):
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            return getattr(self.module, name)
         
     def parameters(self):
         return self.model.parameters()
@@ -35,6 +34,7 @@ class ImageEncoder(Model):
     def __init__(self, config):
         super().__init__(config)
     
+    # encode_image method could call forward method of the model
     def encode_image(self, images):
         raise NotImplementedError("encode_image method must be implemented")
 
@@ -42,6 +42,7 @@ class TextEncoder(Model):
     def __init__(self, config):
         super().__init__(config)        
     
+    # encode_text method could call forward method of the model
     def encode_text(self, texts):
         raise NotImplementedError("encode_text method must be implemented")
 
