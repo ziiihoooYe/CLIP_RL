@@ -53,7 +53,7 @@ class CCDataset(IterDataset):
 class CC3MTrainDataset(CCDataset):
     def __init__(self, config): 
         super(CC3MTrainDataset, self).__init__(config)
-        self.dataset = load_dataset("pixparse/cc3m-wds", split="train", streaming=True)
+        self.dataset = load_dataset("pixparse/cc3m-wds", split="train", streaming=True, download_mode="reuse_dataset_if_exists")
 
 
 class CC3MValDataset(CCDataset):
