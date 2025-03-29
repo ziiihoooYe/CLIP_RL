@@ -42,6 +42,7 @@ class FrozenWithProjector(nn.Module):
             param.requires_grad = False
         self.img_projector = img_projector
         self.txt_projector = txt_projector
+        
 
     def to(self, device):
         """
@@ -54,11 +55,19 @@ class FrozenWithProjector(nn.Module):
         self.txt_projector = self.txt_projector.to(device)
         return super().to(device)
 
+    def __getattr__(self, name):
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            # Allow access to attributes of the base model
+            # This allows us to access methods like `encode_image` and `encode_text`
+            return getattr(self.base_model, name)
+
     def encode_image(self, images):
         with torch.no_grad():
             feats = self.base_model.encode_image(images)
         out = self.img_projector(feats)
-        return out
+        return out 
 
     def encode_text(self, texts):
         with torch.no_grad():
@@ -147,12 +156,22 @@ def CKCLearning(model, dataset, preprocessor_list, config, logger, device):
         optimizer = optim.AdamW(filter(lambda p: p.requires_grad, new_model.parameters()), lr=lr)
     
     # DataLoader
-    train_loader = DataLoader(
-        dataset,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        collate_fn=dataset.collate_fn
-    )
+    if isinstance(dataset, torch.utils.data.IterableDataset):
+        dataset.shuffle()
+        train_loader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            collate_fn=dataset.collate_fn
+        )
+    else:
+        train_loader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+            collate_fn=dataset.collate_fn 
+        )
     
     # Start training
     logger.info(f"CKC Learning Training on dataset {dataset.name} Started----")
@@ -166,6 +185,7 @@ def CKCLearning(model, dataset, preprocessor_list, config, logger, device):
             
             for i, (images, captions) in enumerate(train_loader):
                 if max_iter is not None and global_iter >= max_iter:
+                    break_flag = True
                     break
 
                 # deal with the case when one image corresponds to multiple captions

@@ -23,7 +23,7 @@ ckc_learning:
     temperature_init: 0.07
     temperature_learnable: false
     amp_enabled: false
-    num_workers: 4  
+    num_workers: 4
 
 evaluation:
   class: exp.Evaluation.EvaluationExperiment

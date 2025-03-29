@@ -48,12 +48,16 @@ class CCDataset(IterDataset):
                 continue
             except Exception as e:
                 continue
+    
+    def shuffle(self):
+        self.dataset = self.dataset.shuffle()
+        return self
             
 
 class CC3MTrainDataset(CCDataset):
     def __init__(self, config): 
         super(CC3MTrainDataset, self).__init__(config)
-        self.dataset = load_dataset("pixparse/cc3m-wds", split="train", streaming=True, download_mode="reuse_dataset_if_exists")
+        self.dataset = load_dataset("pixparse/cc3m-wds", split="train", streaming=True)
 
 
 class CC3MValDataset(CCDataset):

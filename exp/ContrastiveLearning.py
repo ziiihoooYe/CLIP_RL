@@ -55,12 +55,21 @@ def ContrastiveLearning(model, dataset, preprocessor_list, config, logger, devic
         optimizer = optim.Adam(model.parameters(), lr=lr)
         
     # DataLoader
-    train_loader = DataLoader(
-        dataset,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        collate_fn=dataset.collate_fn
-    )
+    if isinstance(dataset, torch.utils.data.IterableDataset):
+        train_loader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            collate_fn=dataset.collate_fn
+        )
+    else:
+        train_loader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+            collate_fn=dataset.collate_fn 
+        )
 
     # Start training
     logger.info(f"Contrastive Learning Training on dataset {dataset.name} Started----")

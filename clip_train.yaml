@@ -31,13 +31,14 @@ exp:
   
   - class: ckc_learning
     dataset:
-      class: cc12m_train_dataset
-      # class: coco_val_dataset
+      # class: cc12m_train_dataset
+      # class: cc3m_train_dataset 
+      class: coco_val_dataset
     args:
       infonce_weight: 0.1
-      batch_size: 8192
-      max_iter: 100
-      update_iter: 100
+      batch_size: 5000
+      max_iter: 50
+      update_iter: 50
       ckc_temperature: 0.07
   
   - class: evaluation
@@ -65,13 +66,13 @@ exp:
 
   - class: ckc_learning
     dataset:
-      class: cc12m_train_dataset
-      # class: coco_val_dataset
+      # class: cc12m_train_dataset
+      class: coco_val_dataset
     args:
       infonce_weight: 0.1
-      batch_size: 8192
-      max_iter: 300
-      update_iter: 300
+      batch_size: 5000
+      max_iter: 100
+      update_iter: 100
       ckc_temperature: 0.07
 
   - class: evaluation
@@ -99,11 +100,11 @@ exp:
   
   - class: ckc_learning
     dataset:
-      class: cc12m_train_dataset
-      # class: coco_val_dataset
+      # class: cc12m_train_dataset
+      class: coco_val_dataset
     args:
       infonce_weight: 0.1
-      batch_size: 8192
+      batch_size: 5000
       max_iter: 500
       update_iter: 500
       ckc_temperature: 0.07
@@ -133,11 +134,11 @@ exp:
   
   - class: ckc_learning
     dataset:
-      class: cc12m_train_dataset
-      # class: coco_val_dataset
+      # class: cc12m_train_dataset
+      class: coco_val_dataset
     args:
       infonce_weight: 0.1
-      batch_size: 8192
+      batch_size: 5000
       max_iter: 1000
       update_iter: 1000
       ckc_temperature: 0.07
@@ -168,11 +169,11 @@ exp:
   
   - class: ckc_learning
     dataset:
-      class: cc12m_train_dataset
-      # class: coco_val_dataset
+      # class: cc12m_train_dataset
+      class: coco_val_dataset
     args:
       infonce_weight: 0.1
-      batch_size: 8192
+      batch_size: 5000
       max_iter: 3000
       update_iter: 3000
       ckc_temperature: 0.07
