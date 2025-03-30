@@ -2,7 +2,7 @@ from PIL import Image
 from framework.dataset import IterDataset
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
-from datasets import load_dataset
+from datasets import load_dataset, DownloadConfig
 
 
 def cc_collate_fn(batch):
@@ -15,6 +15,10 @@ def cc_collate_fn(batch):
 class CCDataset(IterDataset):
     def __init__(self, config): 
         super(CCDataset, self).__init__(config)
+        self.download_config = DownloadConfig(
+            max_retries=5,
+            disable_tqdm=True
+        )
         self.collate_fn = cc_collate_fn
 
     def __getitem__(self, idx):
@@ -57,16 +61,16 @@ class CCDataset(IterDataset):
 class CC3MTrainDataset(CCDataset):
     def __init__(self, config): 
         super(CC3MTrainDataset, self).__init__(config)
-        self.dataset = load_dataset("pixparse/cc3m-wds", split="train", streaming=True)
+        self.dataset = load_dataset("pixparse/cc3m-wds", split="train", streaming=True, download_config=self.download_config)
 
 
 class CC3MValDataset(CCDataset):
     def __init__(self, config): 
         super(CC3MValDataset, self).__init__(config)
-        self.dataset = load_dataset("pixparse/cc3m-wds", split="validation", streaming=True)
+        self.dataset = load_dataset("pixparse/cc3m-wds", split="validation", streaming=True, download_config=self.download_config)
 
 
 class CC12MTrainDataset(CCDataset):
     def __init__(self, config): 
         super(CC12MTrainDataset, self).__init__(config)
-        self.dataset = load_dataset("pixparse/cc12m-wds", split="train", streaming=True)
+        self.dataset = load_dataset("pixparse/cc12m-wds", split="train", streaming=True, download_config=self.download_config)

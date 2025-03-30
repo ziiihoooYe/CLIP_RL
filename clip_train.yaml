@@ -6,18 +6,18 @@ default:
 
 # Experiments Config
 exp: 
-  - class: evaluation
-    dataset:
-      class: coco_val_dataset
-    args:
-      sample_size: 5000
-      metrics:
-        - retrieval
-        - uniformity
-        - platonic:
-            trials: 10
-        - eigenfunction:
-            save_path: ./eigenfunction_results
+  # - class: evaluation
+  #   dataset:
+  #     class: coco_val_dataset
+  #   args:
+  #     sample_size: 5000
+  #     metrics:
+  #       - retrieval
+  #       - uniformity
+  #       - platonic:
+  #           trials: 10
+  #       - eigenfunction:
+  #           save_path: ./eigenfunction_results
 
   - class: contrastive_learning
     dataset:
