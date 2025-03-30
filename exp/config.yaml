@@ -13,7 +13,8 @@ contrastive_learning:
 ckc_learning:
   class: exp.CKCLearning.CKCLearningExperiment
   args:
-    epochs: 50
+    epochs: 3000
+    max_iter: 50
     batch_size: 512
     update_iter: 10
     lr: 1e-5
