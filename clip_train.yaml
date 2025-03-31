@@ -1,7 +1,7 @@
 # Default Config
 default:
   gpu: [1,2,3]
-  log_file: ckc_log.log
+  log_file: ckc_uni_log.log
 
 
 # Experiments Config
@@ -26,7 +26,7 @@ exp:
     args:
       epochs: 50
       batch_size: 1024
-      max_iter: 10
+      max_iter: 100
       temperature_learnable: false
   
   # - class: ckc_learning
@@ -61,7 +61,7 @@ exp:
     args:
       epochs: 50
       batch_size: 1024
-      max_iter: 30
+      max_iter: 300
       temperature_learnable: false
 
   # - class: ckc_learning
@@ -95,7 +95,7 @@ exp:
     args:
       epochs: 50
       batch_size: 1024
-      max_iter: 50
+      max_iter: 500
       temperature_learnable: false
   
   # - class: ckc_learning
@@ -129,7 +129,7 @@ exp:
     args:
       epochs: 50
       batch_size: 1024
-      max_iter: 100
+      max_iter: 1000
       temperature_learnable: false
   
   # - class: ckc_learning
@@ -156,78 +156,11 @@ exp:
         - eigenfunction:
             save_path: ./eigenfunction_results
 
-  - class: contrastive_learning
-    dataset:
-      class: cc12m_train_dataset
-      # class: coco_val_dataset
-    args:
-      epochs: 50
-      batch_size: 1024
-      max_iter: 300
-      temperature_learnable: false
-  
-  # - class: ckc_learning
-  #   dataset:
-  #     # class: cc12m_train_dataset
-  #     class: coco_val_dataset
-  #   args:
-  #     infonce_weight: 0.1
-  #     batch_size: 5000
-  #     max_iter: 3000
-  #     update_iter: 3000
-  #     ckc_temperature: 0.07
-
-  - class: evaluation
-    dataset:
-      class: coco_val_dataset
-    args:
-      sample_size: 5000
-      metrics:
-        - retrieval
-        - uniformity
-        - platonic:
-            trials: 10
-        - eigenfunction:
-            save_path: ./eigenfunction_results
-  
-  - class: contrastive_learning
-    dataset:
-      class: cc12m_train_dataset
-      # class: coco_val_dataset
-    args:
-      epochs: 50
-      batch_size: 1024
-      max_iter: 1000
-      temperature_learnable: false
-  
-  # - class: ckc_learning
-  #   dataset:
-  #     # class: cc12m_train_dataset
-  #     class: coco_val_dataset
-  #   args:
-  #     infonce_weight: 0.1
-  #     batch_size: 5000
-  #     max_iter: 3000
-  #     update_iter: 3000
-  #     ckc_temperature: 0.07
-
-  - class: evaluation
-    dataset:
-      class: coco_val_dataset
-    args:
-      sample_size: 5000
-      metrics:
-        - retrieval
-        - uniformity
-        - platonic:
-            trials: 10
-        - eigenfunction:
-            save_path: ./eigenfunction_results
-
 
 # Model Config
 model:
   class: clip_vitb32
+
 
 # Preprocessor Config
 preprocessor:
