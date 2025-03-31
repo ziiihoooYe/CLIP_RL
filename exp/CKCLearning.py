@@ -247,7 +247,7 @@ def CKCLearning(model, dataset, preprocessor_list, config, logger, device):
                     for param in old_model.parameters():
                         param.requires_grad = False
 
-    new_model.iter_now = global_iter
+    new_model.iter_now += global_iter
     logger.info("Contrastive Learning Training Finished----")
     model.old_model = new_model
     

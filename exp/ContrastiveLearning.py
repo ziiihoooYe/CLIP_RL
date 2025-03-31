@@ -136,7 +136,7 @@ def ContrastiveLearning(model, dataset, preprocessor_list, config, logger, devic
                     pbar.set_postfix(loss=loss.item(), epoch=epoch+1)
                     pbar.update(1)
     
-    model.iter_now = global_iter  # update the current iteration number of the model
+    model.iter_now += global_iter  # update the current iteration number of the model
     logger.info("Contrastive Learning Training Finished----")
     
     return model

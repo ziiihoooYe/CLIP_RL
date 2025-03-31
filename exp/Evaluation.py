@@ -626,30 +626,95 @@ def compare_topk_differences_sorted(model_repr_pairs, save_path, top_k=16, plot=
     return df_all
 
 
-def plot_multiple_models_sorted_stats(model_repr_dict, save_path, stat_type='mean', top_k=16):
+def plot_multiple_models_sorted_stats(model_repr_pairs, save_path, top_k=16):
+    """
+    Plots four separate figures for each model:
+     1) Image Mean (sorted descending)
+     2) Image Variance (sorted descending)
+     3) Text Mean (sorted descending)
+     4) Text Variance (sorted descending)
 
+    Args:
+        model_repr_pairs (dict):
+            {model_name: (img_repr, txt_repr)}, where img_repr/txt_repr is a torch.Tensor or numpy array of shape [N, D].
+        save_path (str): directory to save the figures
+        top_k (int): number of top elements to show in the sorted stats
+    """
+    import os
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    # Figure 1: Image Mean
     plt.figure(figsize=(8, 5))
-    for model_name, repr_data in model_repr_dict.items():
-        if hasattr(repr_data, 'cpu'):
-            repr_data = repr_data.cpu().numpy()
-        if stat_type == 'mean':
-            stats = repr_data.mean(axis=0)
-            ylabel = 'Mean'
-        elif stat_type == 'variance':
-            stats = repr_data.var(axis=0)
-            ylabel = 'Variance'
-        else:
-            raise ValueError("stat_type has to be 'mean' or 'variance'")
+    for model_name, (img_repr, txt_repr) in model_repr_pairs.items():
+        if hasattr(img_repr, 'cpu'):
+            img_repr = img_repr.cpu().numpy()
+        img_mean = img_repr.mean(axis=0)
+        sorted_means = np.sort(img_mean)[::-1][:top_k]
+        x = np.arange(1, top_k+1)
+        plt.plot(x, sorted_means, marker='o', label=model_name)
 
-        sorted_stats = np.sort(stats)[::-1][:top_k]
-        ranks = np.arange(1, top_k+1)
-        plt.plot(ranks, sorted_stats, marker='o', label=model_name)
-
+    plt.title(f"Top {top_k} Image Mean (Sorted Descending)")
     plt.xlabel('Rank (1 = largest)')
-    plt.ylabel(ylabel)
-    plt.title(f"Top {top_k} {ylabel}s (Sorted Descending) for Multiple Models")
+    plt.ylabel('Mean')
     plt.legend()
-    plt.savefig(os.path.join(save_path, f"top_{top_k}_{stat_type}.png"))
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, f"top_{top_k}_image_mean.png"))
+    plt.close()
+
+    # Figure 2: Image Variance
+    plt.figure(figsize=(8, 5))
+    for model_name, (img_repr, txt_repr) in model_repr_pairs.items():
+        if hasattr(img_repr, 'cpu'):
+            img_repr = img_repr.cpu().numpy()
+        img_var = img_repr.var(axis=0)
+        sorted_vars = np.sort(img_var)[::-1][:top_k]
+        x = np.arange(1, top_k+1)
+        plt.plot(x, sorted_vars, marker='o', label=model_name)
+
+    plt.title(f"Top {top_k} Image Variance (Sorted Descending)")
+    plt.xlabel('Rank (1 = largest)')
+    plt.ylabel('Variance')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, f"top_{top_k}_image_variance.png"))
+    plt.close()
+
+    # Figure 3: Text Mean
+    plt.figure(figsize=(8, 5))
+    for model_name, (img_repr, txt_repr) in model_repr_pairs.items():
+        if hasattr(txt_repr, 'cpu'):
+            txt_repr = txt_repr.cpu().numpy()
+        txt_mean = txt_repr.mean(axis=0)
+        sorted_means = np.sort(txt_mean)[::-1][:top_k]
+        x = np.arange(1, top_k+1)
+        plt.plot(x, sorted_means, marker='o', label=model_name)
+
+    plt.title(f"Top {top_k} Text Mean (Sorted Descending)")
+    plt.xlabel('Rank (1 = largest)')
+    plt.ylabel('Mean')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, f"top_{top_k}_text_mean.png"))
+    plt.close()
+
+    # Figure 4: Text Variance
+    plt.figure(figsize=(8, 5))
+    for model_name, (img_repr, txt_repr) in model_repr_pairs.items():
+        if hasattr(txt_repr, 'cpu'):
+            txt_repr = txt_repr.cpu().numpy()
+        txt_var = txt_repr.var(axis=0)
+        sorted_vars = np.sort(txt_var)[::-1][:top_k]
+        x = np.arange(1, top_k+1)
+        plt.plot(x, sorted_vars, marker='o', label=model_name)
+
+    plt.title(f"Top {top_k} Text Variance (Sorted Descending)")
+    plt.xlabel('Rank (1 = largest)')
+    plt.ylabel('Variance')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(save_path, f"top_{top_k}_text_variance.png"))
+    plt.close()
 
 
 def plot_multiple_models_repr_stats_sorted(model_repr_pairs, save_path, top_k=16):
@@ -738,27 +803,8 @@ def eigenfunction_evaluate(stored_img_results, stored_txt_results, save_path, lo
     )
     logger.info(f"[EigenEvaluation] Top-K differences:\n{df_diff}")
 
-    # plot_sorted_stats (mean/variance)
-    plot_multiple_models_sorted_stats(
-        stored_img_results,
-        save_path=save_path,
-        stat_type='mean',
-    )
-    plot_multiple_models_sorted_stats(
-        stored_img_results,
-        stat_type='variance',
-        save_path=save_path,
-    )
-    plot_multiple_models_sorted_stats(
-        stored_txt_results,
-        stat_type='mean',
-        save_path=save_path,
-    )
-    plot_multiple_models_sorted_stats(
-        stored_txt_results,
-        stat_type='variance',
-        save_path=save_path,
-    )
+    # plot_sorted_stats using the new signature
+    plot_multiple_models_sorted_stats(model_repr_pairs, save_path=save_path)
 
     stats_dict = plot_multiple_models_repr_stats_sorted(model_repr_pairs, save_path=save_path)
     logger.info(f"[EigenEvaluation] Stats dict from repr analysis: \n{stats_dict}")

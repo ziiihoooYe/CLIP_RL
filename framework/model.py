@@ -9,7 +9,7 @@ class Model(nn.Module):
         # - model: the callable model object
         self.config = config
         self.model = None
-        self.iter_now = None # this is used to track the current iteration during training
+        self.iter_now = 0 # this is used to track the current iteration during training
         self.stored_img_feat = {}
         self.stored_txt_feat = {}
     
