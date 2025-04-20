@@ -95,6 +95,13 @@ class EvaluationExperiment(Experiment):
                 if not os.path.exists(save_path):
                     os.makedirs(save_path)
                 eigenfunction_evaluate(model.stored_img_feat, model.stored_txt_feat, save_path, logger)
+            elif metric_name == "multimodal_retrieval":
+                evaluate_multimodal_retrieval(
+                    logger,
+                    image_features,
+                    text_features,
+                    num_captions,
+                )
             else:
                 raise NotImplementedError(f"Metric {metric} is not implemented")
 
@@ -808,3 +815,53 @@ def eigenfunction_evaluate(stored_img_results, stored_txt_results, save_path, lo
 
     stats_dict = plot_multiple_models_repr_stats_sorted(model_repr_pairs, save_path=save_path)
     logger.info(f"[EigenEvaluation] Stats dict from repr analysis: \n{stats_dict}")
+
+
+### ---------------------- Multimodal Retrieval ---------------------- ###
+def evaluate_multimodal_retrieval(logger,
+                                  image_features: torch.Tensor,
+                                  text_features:  torch.Tensor,
+                                  num_captions:  int = 5):
+    import torch
+    import pandas as pd
+
+    N = image_features.size(0)
+    assert text_features.size(0) == N * num_captions, \
+        "text_features unmatched with image_features, " \
+
+    # ℓ2 归一化
+    img = image_features / image_features.norm(dim=-1, keepdim=True)
+    txt = text_features / text_features.norm(dim=-1, keepdim=True)
+
+    all_feats = torch.cat([img, txt], dim=0)                # (N + N*C, D)
+    sim       = all_feats @ all_feats.T                     # (M, M)
+    sim.fill_diagonal_(float("-inf"))                       # mask 自相似
+
+    # --- Image → Text ---
+    I2T_top1 = I2T_top5 = I2T_top10 = 0
+    for i in range(N):
+        sorted_idx = torch.argsort(sim[i], descending=True)
+        # 正确 caption 区间
+        gt_text_idx = range(N + i*num_captions, N + (i+1)*num_captions)
+        if any(idx in sorted_idx[:1]  for idx in gt_text_idx):  I2T_top1 += 1
+        if any(idx in sorted_idx[:5]  for idx in gt_text_idx):  I2T_top5 += 1
+        if any(idx in sorted_idx[:10] for idx in gt_text_idx):  I2T_top10 += 1
+
+    # --- Text → Image ---
+    T2I_top1 = T2I_top5 = T2I_top10 = 0
+    for j in range(N * num_captions):
+        j_total   = N + j                    # text 的全局行号
+        sorted_idx = torch.argsort(sim[j_total], descending=True)
+        gt_image_idx = (j // num_captions)   # 对应 image 的行号
+        if gt_image_idx in sorted_idx[:1]:   T2I_top1 += 1
+        if gt_image_idx in sorted_idx[:5]:   T2I_top5 += 1
+        if gt_image_idx in sorted_idx[:10]:  T2I_top10 += 1
+
+    # 归一化得到准确率
+    I2T = [x / N             for x in (I2T_top1, I2T_top5, I2T_top10)]
+    T2I = [x / (N*num_captions) for x in (T2I_top1, T2I_top5, T2I_top10)]
+
+    df = pd.DataFrame([I2T + T2I],
+        columns=["MM_I2T_top1","MM_I2T_top5","MM_I2T_top10",
+                 "MM_T2I_top1","MM_T2I_top5","MM_T2I_top10"])
+    logger.info(f"\n{df.to_string()}")

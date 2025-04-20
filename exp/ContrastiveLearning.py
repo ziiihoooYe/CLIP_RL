@@ -6,7 +6,7 @@ from tqdm import tqdm
 from framework.experiments import Experiment
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from loss.infonce import infonce_loss
+from loss.infonce import infonce_loss, infonce_multimodal_loss
 from loss.uniformity import uniformity_loss
 from tqdm.contrib.logging import logging_redirect_tqdm
 
@@ -109,9 +109,10 @@ def ContrastiveLearning(model, dataset, preprocessor_list, config, logger, devic
                             temperature = temperature_init
                         
                         # Calculate the contrastive loss
-                        loss = 0.7 * infonce_loss(image_embeds, text_embeds, temperature=temperature) \
-                             + 0.2 * uniformity_loss(image_embeds, t=2) \
-                             + 0.1 * uniformity_loss(text_embeds, t=2)
+                        # loss = 0.7 * infonce_loss(image_embeds, text_embeds, temperature=temperature) \
+                        #      + 0.2 * uniformity_loss(image_embeds, t=2) \
+                        #      + 0.1 * uniformity_loss(text_embeds, t=2)
+                        loss = infonce_multimodal_loss(image_embeds, text_embeds, temperature=temperature)
 
                     # backpropagation
                     optimizer.zero_grad()
